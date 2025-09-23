@@ -9,12 +9,14 @@ import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, AsyncIterator, Iterable, Mapping, Sequence
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
-from langchain.chains import LLMChain, SequentialChain
+from fastapi.responses import StreamingResponse
+from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from langchain_core.messages import AIMessage, AIMessageChunk
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,6 +24,7 @@ from shared.config.settings import Settings, get_settings
 from shared.llm import (
     InvalidPromptTemplateError,
     MissingPromptTemplateError,
+    ModelSpec,
     PromptTemplateSpec,
     PromptVariableMismatchError,
     build_context_variables,
@@ -30,11 +33,7 @@ from shared.llm import (
     resolve_provider,
 )
 from shared.llm.chains.category_classifier import CategoryClassifier
-from shared.models.chain import (
-    ChainExecutionRequest,
-    ChainExecutionResponse,
-    ChainStepResult,
-)
+from shared.models.chain import ChainExecutionRequest, ChainExecutionResponse, ChainStepResult
 from shared.models.chat import (
     ChatPrompt,
     ChatPromptKey,
@@ -244,6 +243,18 @@ class _ResolvedPrompt:
     template: PromptTemplate
     input_variables: Sequence[str]
     output_key: str
+
+
+@dataclass
+class _ChainExecutionContext:
+    payload: ChainExecutionRequest
+    llm: Any
+    model_spec: ModelSpec
+    provider: LLMProvider
+    patient_context: EHRPatientContext | None
+    variables: dict[str, Any]
+    steps: list[ChainStepResult]
+    resolved_prompts: list[_ResolvedPrompt]
 
 
 _CATEGORY_CLASSIFICATION_CACHE: dict[str, tuple[str, ...]] = {}
@@ -535,19 +546,103 @@ def _normalize_outputs(outputs: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-@router.post(
-    "/execute",
-    response_model=ChainExecutionResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def execute_chain(
-    payload: ChainExecutionRequest,
-    prompt_client: PromptCatalogClient = Depends(get_prompt_catalog_client),
-    patient_client: PatientContextClient = Depends(get_patient_context_client),
-    settings: Settings = Depends(get_settings),
-) -> ChainExecutionResponse:
-    """Execute a sequence of prompts using the configured language model provider."""
+def _create_llm_chain(resolved: _ResolvedPrompt, llm: Any) -> LLMChain:
+    return LLMChain(llm=llm, prompt=resolved.template, output_key=resolved.output_key)
 
+
+async def _invoke_llm_chain(chain: LLMChain, variables: Mapping[str, Any]) -> Mapping[str, Any]:
+    ainvoke = getattr(chain, "ainvoke", None)
+    if callable(ainvoke):
+        return await ainvoke(variables)
+    return await asyncio.to_thread(chain.invoke, variables)
+
+
+def _coalesce_text(payload: Any) -> str:
+    if payload is None:
+        return ""
+    if isinstance(payload, AIMessageChunk):
+        text = _coalesce_text(payload.content)
+        if text:
+            return text
+        return _coalesce_text(payload.additional_kwargs)
+    if isinstance(payload, AIMessage):
+        text = _coalesce_text(payload.content)
+        if text:
+            return text
+        return _coalesce_text(payload.additional_kwargs)
+    if isinstance(payload, str):
+        return payload
+    if isinstance(payload, Mapping):
+        candidates = []
+        for key in ("text", "content", "message", "value", "output"):
+            if key in payload:
+                candidates.append(payload[key])
+        if "delta" in payload:
+            candidates.append(payload["delta"])
+        if "choices" in payload:
+            candidates.append(payload["choices"])
+        for candidate in candidates:
+            text = _coalesce_text(candidate)
+            if text:
+                return text
+        return ""
+    if isinstance(payload, Iterable) and not isinstance(payload, (bytes, bytearray, str)):
+        parts: list[str] = []
+        for item in payload:
+            text = _coalesce_text(item)
+            if text:
+                parts.append(text)
+        return "".join(parts)
+    return str(payload)
+
+
+def _format_sse_event(payload: Mapping[str, Any]) -> str:
+    event_type = str(payload.get("type", "message"))
+    serialized = json.dumps(payload, ensure_ascii=False)
+    lines = serialized.splitlines() or [serialized]
+    buffer: list[str] = [f"event: {event_type}\n"]
+    for line in lines:
+        buffer.append(f"data: {line}\n")
+    buffer.append("\n")
+    return "".join(buffer)
+
+
+def _finalize_response(
+    context: _ChainExecutionContext,
+    *,
+    variables: Mapping[str, Any],
+    outputs: Mapping[str, Any],
+) -> ChainExecutionResponse:
+    final_outputs = dict(outputs)
+    final_variables = dict(variables)
+    final_output_key = (
+        context.resolved_prompts[-1].output_key if context.resolved_prompts else None
+    )
+    final_output = final_outputs.get(final_output_key) if final_output_key else None
+    metadata = dict(context.payload.metadata)
+    metadata.setdefault("service", SERVICE_NAME)
+    metadata.setdefault("canonical_model", context.model_spec.canonical_name)
+
+    return ChainExecutionResponse(
+        steps=list(context.steps),
+        outputs=final_outputs,
+        inputs=final_variables,
+        final_output_key=final_output_key,
+        final_output=final_output,
+        model_provider=context.provider,
+        provider=context.provider.value,
+        model=context.model_spec.model_name,
+        patient_context=context.patient_context,
+        metadata=metadata,
+    )
+
+
+async def _build_execution_context(
+    payload: ChainExecutionRequest,
+    prompt_client: PromptCatalogClient,
+    patient_client: PatientContextClient,
+    settings: Settings,
+) -> _ChainExecutionContext:
     model_identifier = payload.model.strip() if payload.model else None
 
     provider_hint = payload.model_provider
@@ -573,22 +668,16 @@ async def execute_chain(
             detail=f"Failed to initialize language model: {exc}",
         ) from exc
 
-    _apply_model_overrides(
-        llm, max_tokens=payload.max_tokens, top_p=payload.top_p
-    )
+    _apply_model_overrides(llm, max_tokens=payload.max_tokens, top_p=payload.top_p)
 
     patient_context: EHRPatientContext | None = None
     if payload.patient_id:
         try:
             patient_context = await patient_client.get_patient_context(payload.patient_id)
         except PatientNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-            ) from exc
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
         except PatientContextServiceError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-            ) from exc
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     variables: dict[str, Any] = {
         str(key): value for key, value in payload.variables.items()
@@ -637,58 +726,221 @@ async def execute_chain(
         steps.append(ChainStepResult(prompt=resolved.prompt, output_key=resolved.output_key))
         available_variables.add(resolved.output_key)
 
-    llm_chains: list[LLMChain] = []
-    output_keys: list[str] = []
-    for resolved in resolved_prompts:
-        chain = LLMChain(
-            llm=llm,
-            prompt=resolved.template,
-            output_key=resolved.output_key,
-        )
-        llm_chains.append(chain)
-        output_keys.append(resolved.output_key)
-
-    sequential_chain = SequentialChain(
-        chains=llm_chains,
-        input_variables=sorted(variables.keys()),
-        output_variables=output_keys,
-        verbose=False,
-    )
-
-    try:
-        if hasattr(sequential_chain, "ainvoke"):
-            outputs = await sequential_chain.ainvoke(variables)
-        else:  # pragma: no cover - fallback for legacy chain APIs
-            outputs = await asyncio.to_thread(sequential_chain.invoke, variables)
-    except HTTPException:
-        raise
-    except Exception as exc:  # pragma: no cover - propagation of provider errors
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Chain execution failed: {exc}",
-        ) from exc
-
-    normalized_outputs = _normalize_outputs(outputs)
-    variables.update(normalized_outputs)
-    final_output_key = output_keys[-1] if output_keys else None
-    final_output = normalized_outputs.get(final_output_key) if final_output_key else None
-
-    metadata = dict(payload.metadata)
-    metadata.setdefault("service", SERVICE_NAME)
-    metadata.setdefault("canonical_model", model_spec.canonical_name)
-
-    return ChainExecutionResponse(
-        steps=steps,
-        outputs=normalized_outputs,
-        inputs=variables,
-        final_output_key=final_output_key,
-        final_output=final_output,
-        model_provider=provider,
-        provider=provider.value,
-        model=model_spec.model_name,
+    return _ChainExecutionContext(
+        payload=payload,
+        llm=llm,
+        model_spec=model_spec,
+        provider=provider,
         patient_context=patient_context,
-        metadata=metadata,
+        variables=variables,
+        steps=steps,
+        resolved_prompts=resolved_prompts,
     )
+
+
+async def _execute_chain_buffered(context: _ChainExecutionContext) -> ChainExecutionResponse:
+    variables = dict(context.variables)
+    outputs: dict[str, Any] = {}
+
+    for resolved in context.resolved_prompts:
+        chain = _create_llm_chain(resolved, context.llm)
+        result = await _invoke_llm_chain(chain, variables)
+        normalized = _normalize_outputs(result)
+        variables.update(normalized)
+        outputs.update(normalized)
+
+    return _finalize_response(context, variables=variables, outputs=outputs)
+
+
+async def _iter_llm_stream(
+    chain: LLMChain, variables: Mapping[str, Any]
+) -> AsyncIterator[str]:
+    astream_events = getattr(chain, "astream_events", None)
+    if not callable(astream_events):
+        return
+
+    async for event in astream_events(variables, version="v1"):
+        if not isinstance(event, Mapping):
+            continue
+        if event.get("event") != "on_llm_stream":
+            continue
+        data = event.get("data") or {}
+        chunk = data.get("chunk")
+        text = _coalesce_text(chunk)
+        if text:
+            yield text
+
+
+async def _execute_chain_streaming(
+    context: _ChainExecutionContext,
+) -> AsyncIterator[str]:
+    async def iterator() -> AsyncIterator[str]:
+        variables = dict(context.variables)
+        outputs: dict[str, Any] = {}
+
+        final_resolved = context.resolved_prompts[-1] if context.resolved_prompts else None
+        final_chain = (
+            _create_llm_chain(final_resolved, context.llm)
+            if final_resolved is not None
+            else None
+        )
+        supports_streaming = bool(
+            final_chain and callable(getattr(final_chain, "astream_events", None))
+        )
+
+        metadata_event = {
+            "type": "metadata",
+            "service": SERVICE_NAME,
+            "provider": context.provider.value,
+            "model": context.model_spec.model_name,
+            "streaming": supports_streaming,
+            "finalOutputKey": final_resolved.output_key if final_resolved else None,
+            "patientId": context.payload.patient_id,
+        }
+        yield _format_sse_event(metadata_event)
+
+        try:
+            for resolved in context.resolved_prompts[:-1]:
+                chain = _create_llm_chain(resolved, context.llm)
+                result = await _invoke_llm_chain(chain, variables)
+                normalized = _normalize_outputs(result)
+                variables.update(normalized)
+                outputs.update(normalized)
+
+                step_output = normalized.get(resolved.output_key)
+                if step_output is not None:
+                    yield _format_sse_event(
+                        {
+                            "type": "step",
+                            "outputKey": resolved.output_key,
+                            "text": str(step_output),
+                        }
+                    )
+
+            final_chunks: list[str] = []
+            if final_resolved is not None and final_chain is not None:
+                streaming_successful = False
+                if supports_streaming:
+                    try:
+                        async for text_chunk in _iter_llm_stream(final_chain, variables):
+                            streaming_successful = True
+                            final_chunks.append(text_chunk)
+                            yield _format_sse_event(
+                                {
+                                    "type": "chunk",
+                                    "outputKey": final_resolved.output_key,
+                                    "text": text_chunk,
+                                }
+                            )
+                    except Exception as exc:  # pragma: no cover - defensive logging
+                        supports_streaming = False
+                        logger.warning(
+                            "Streaming unsupported for %s, falling back to buffered response: %s",
+                            context.provider.value,
+                            exc,
+                        )
+                        yield _format_sse_event(
+                            {
+                                "type": "info",
+                                "streaming": False,
+                                "message": (
+                                    "Streaming is not supported by the selected model. "
+                                    "Falling back to a buffered response."
+                                ),
+                            }
+                        )
+
+                if not supports_streaming or not streaming_successful:
+                    result = await _invoke_llm_chain(final_chain, variables)
+                    normalized = _normalize_outputs(result)
+                    variables.update(normalized)
+                    outputs.update(normalized)
+                    buffered_text = normalized.get(final_resolved.output_key)
+                    if buffered_text is not None:
+                        text_value = str(buffered_text)
+                        final_chunks = [text_value]
+                        yield _format_sse_event(
+                            {
+                                "type": "chunk",
+                                "outputKey": final_resolved.output_key,
+                                "text": text_value,
+                                "buffered": True,
+                            }
+                        )
+
+                supports_streaming = supports_streaming and streaming_successful
+                final_text = "".join(final_chunks)
+                outputs[final_resolved.output_key] = final_text
+                variables[final_resolved.output_key] = final_text
+
+            response = _finalize_response(context, variables=variables, outputs=outputs)
+            yield _format_sse_event(
+                {
+                    "type": "response",
+                    "streaming": supports_streaming,
+                    "response": response.model_dump(
+                        mode="json", by_alias=True, exclude_none=True
+                    ),
+                }
+            )
+        except HTTPException as exc:
+            yield _format_sse_event(
+                {
+                    "type": "error",
+                    "status": exc.status_code,
+                    "detail": exc.detail,
+                }
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Streaming chain execution failed: %s", exc)
+            yield _format_sse_event(
+                {
+                    "type": "error",
+                    "status": status.HTTP_502_BAD_GATEWAY,
+                    "detail": f"Chain execution failed: {exc}",
+                }
+            )
+
+    return iterator()
+
+
+@router.post(
+    "/execute",
+    response_model=ChainExecutionResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def execute_chain(
+    payload: ChainExecutionRequest,
+    prompt_client: PromptCatalogClient = Depends(get_prompt_catalog_client),
+    patient_client: PatientContextClient = Depends(get_patient_context_client),
+    settings: Settings = Depends(get_settings),
+) -> ChainExecutionResponse:
+    """Execute a sequence of prompts using the configured language model provider."""
+
+    context = await _build_execution_context(
+        payload, prompt_client, patient_client, settings
+    )
+    return await _execute_chain_buffered(context)
+
+
+@router.post(
+    "/execute/stream",
+    status_code=status.HTTP_200_OK,
+)
+async def stream_chain_execution(
+    payload: ChainExecutionRequest,
+    prompt_client: PromptCatalogClient = Depends(get_prompt_catalog_client),
+    patient_client: PatientContextClient = Depends(get_patient_context_client),
+    settings: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    """Stream partial chain results as server-sent events."""
+
+    context = await _build_execution_context(
+        payload, prompt_client, patient_client, settings
+    )
+    iterator = await _execute_chain_streaming(context)
+    headers = {"Cache-Control": "no-cache"}
+    return StreamingResponse(iterator, media_type="text/event-stream", headers=headers)
 
 
 app.include_router(router)
@@ -700,4 +952,4 @@ def get_app() -> FastAPI:
     return app
 
 
-__all__ = ["app", "get_app", "health", "execute_chain"]
+__all__ = ["app", "get_app", "health", "execute_chain", "stream_chain_execution"]
