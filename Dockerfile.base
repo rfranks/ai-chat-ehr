@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1.5
+
+ARG PYTHON_VERSION=3.11-slim
+FROM python:${PYTHON_VERSION} AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+# Install build tooling required for optional native dependencies
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+        build-essential \
+        libffi-dev \
+        python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade packaging tooling prior to dependency installation
+RUN pip install --upgrade pip setuptools wheel
+
+# Install the shared Python dependencies declared by the project
+RUN pip install --no-cache-dir \
+        "fastapi>=0.110,<1" \
+        "uvicorn[standard]>=0.29,<0.30" \
+        "langchain>=0.1,<0.2" \
+        "httpx>=0.27,<0.28" \
+        "pydantic-settings>=2.1,<3" \
+        "python-dotenv>=1.0,<2" \
+        "openai>=1.14,<2" \
+        "anthropic>=0.21,<0.22" \
+        "loguru>=0.7,<0.8" \
+        "structlog>=24.1,<25" \
+        "tenacity>=8.2,<9"
+
