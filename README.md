@@ -26,3 +26,38 @@ warning, emits an informational event, and falls back to a buffered response. In
 this mode the `chunk` event contains the entire response payload, and the final
 `response` event reports `"streaming": false` so clients can adjust their user
 experience accordingly.
+
+## Running the services with Docker Compose
+
+The repository ships with container definitions for each FastAPI service plus a
+shared Python base image. To start the stack locally:
+
+1. Build the common base image:
+
+   ```bash
+   docker build -f Dockerfile.base -t ai-chat-ehr-base .
+   ```
+
+2. Bootstrap your environment configuration:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Update `.env` with any provider credentials or overrides that you need for
+   experimentation.
+
+3. Launch the services and supporting Redis instance:
+
+   ```bash
+   docker compose up --build
+   ```
+
+   The compose file exposes the services on the following ports:
+
+   * Prompt catalog – <http://localhost:8001>
+   * Patient context – <http://localhost:8002>
+   * Chain executor – <http://localhost:8003>
+   * Redis mock datastore – `localhost:6379`
+
+   Use `docker compose down` to stop the stack once you finish testing.

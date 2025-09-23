@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  prompt-catalog:
+    image: ai-chat-ehr-prompt-catalog:latest
+    build:
+      context: .
+      dockerfile: services/prompt_catalog/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ai-chat-ehr-base:latest}
+    env_file:
+      - .env
+    ports:
+      - "8001:8001"
+    depends_on:
+      - redis
+
+  patient-context:
+    image: ai-chat-ehr-patient-context:latest
+    build:
+      context: .
+      dockerfile: services/patient_context/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ai-chat-ehr-base:latest}
+    env_file:
+      - .env
+    ports:
+      - "8002:8002"
+    depends_on:
+      - redis
+
+  chain-executor:
+    image: ai-chat-ehr-chain-executor:latest
+    build:
+      context: .
+      dockerfile: services/chain_executor/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ai-chat-ehr-base:latest}
+    env_file:
+      - .env
+    ports:
+      - "8003:8003"
+    depends_on:
+      prompt-catalog:
+        condition: service_started
+      patient-context:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
