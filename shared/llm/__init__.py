@@ -12,6 +12,15 @@ from .llmmodels import (
     resolve_model_spec,
     resolve_provider,
 )
+from .prompt_builder import (
+    InvalidPromptTemplateError,
+    MissingPromptTemplateError,
+    PromptBuilderError,
+    PromptTemplateSpec,
+    PromptVariableMismatchError,
+    build_context_variables,
+    build_prompt_template,
+)
 
 __all__ = [
     "LLMProvider",
@@ -24,4 +33,11 @@ __all__ = [
     "resolve_model_name",
     "resolve_model_spec",
     "resolve_provider",
+    "PromptBuilderError",
+    "MissingPromptTemplateError",
+    "InvalidPromptTemplateError",
+    "PromptVariableMismatchError",
+    "PromptTemplateSpec",
+    "build_prompt_template",
+    "build_context_variables",
 ]

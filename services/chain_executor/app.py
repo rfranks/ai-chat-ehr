@@ -19,7 +19,16 @@ from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from shared.config.settings import Settings, get_settings
-from shared.llm import resolve_model_spec, resolve_provider
+from shared.llm import (
+    InvalidPromptTemplateError,
+    MissingPromptTemplateError,
+    PromptTemplateSpec,
+    PromptVariableMismatchError,
+    build_context_variables,
+    build_prompt_template,
+    resolve_model_spec,
+    resolve_provider,
+)
 from shared.llm.chains.category_classifier import CategoryClassifier
 from shared.models.chain import (
     ChainExecutionRequest,
@@ -442,37 +451,31 @@ async def _resolve_prompt(
 def _prepare_prompt(
     prompt: ChatPrompt, index: int, available: set[str], used_keys: set[str]
 ) -> _ResolvedPrompt:
-    template_text = (prompt.template or "").strip()
-    if not template_text:
+    try:
+        spec: PromptTemplateSpec = build_prompt_template(prompt)
+    except MissingPromptTemplateError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Prompt '{_describe_prompt(prompt)}' does not define template text.",
-        )
-
-    try:
-        template = PromptTemplate.from_template(template_text)
-    except ValueError as exc:
+        ) from exc
+    except InvalidPromptTemplateError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Prompt '{_describe_prompt(prompt)}' contains an invalid template: {exc}"
             ),
         ) from exc
-
-    declared_variables = set(prompt.input_variables or [])
-    derived_variables = set(template.input_variables)
-    missing_declared = declared_variables - derived_variables
-    if missing_declared:
-        missing = ", ".join(sorted(missing_declared))
+    except PromptVariableMismatchError as exc:
+        missing = ", ".join(sorted(exc.missing_variables))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Prompt '{_describe_prompt(prompt)}' declares input variable(s) {missing} "
                 "that are not present in the template."
             ),
-        )
+        ) from exc
 
-    input_variables = sorted(derived_variables)
+    input_variables = list(spec.input_variables)
     missing_inputs = [name for name in input_variables if name not in available]
     if missing_inputs:
         formatted = ", ".join(missing_inputs)
@@ -487,7 +490,7 @@ def _prepare_prompt(
     output_key = _determine_output_key(prompt, index, used_keys)
     return _ResolvedPrompt(
         prompt=prompt,
-        template=template,
+        template=spec.template,
         input_variables=input_variables,
         output_key=output_key,
     )
@@ -603,6 +606,11 @@ async def execute_chain(
         )
         available_variables.update({"patient_context", "patient_context_json"})
 
+    derived_context = build_context_variables(patient_context)
+    for key, value in derived_context.items():
+        variables.setdefault(key, value)
+    available_variables.update(derived_context.keys())
+
     used_output_keys: set[str] = set()
     resolved_prompts: list[_ResolvedPrompt] = []
     steps: list[ChainStepResult] = []
@@ -661,6 +669,7 @@ async def execute_chain(
         ) from exc
 
     normalized_outputs = _normalize_outputs(outputs)
+    variables.update(normalized_outputs)
     final_output_key = output_keys[-1] if output_keys else None
     final_output = normalized_outputs.get(final_output_key) if final_output_key else None
 
