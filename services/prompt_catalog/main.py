@@ -1,21 +1,8 @@
-"""Prompt Catalog service placeholder application."""
+"""Application entrypoint for the prompt catalog service."""
 
-from fastapi import FastAPI
+from .app import app, get_app
 
-SERVICE_NAME = "prompt_catalog"
-
-app = FastAPI(title="Prompt Catalog Service")
-
-
-@app.get("/health", tags=["health"])
-async def health() -> dict[str, str]:
-    """Return a simple health payload for orchestration checks."""
-    return {"status": "ok", "service": SERVICE_NAME}
-
-
-def get_app() -> FastAPI:
-    """Return the FastAPI app instance."""
-    return app
+__all__ = ["app", "get_app"]
 
 
 if __name__ == "__main__":  # pragma: no cover
