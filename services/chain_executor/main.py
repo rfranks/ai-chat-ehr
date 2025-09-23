@@ -1,21 +1,18 @@
-"""Chain Executor service placeholder application."""
+"""Entrypoint module for the Chain Executor FastAPI service."""
+
+from __future__ import annotations
 
 from fastapi import FastAPI
 
-SERVICE_NAME = "chain_executor"
+from .app import app, get_app as _get_app
 
-app = FastAPI(title="Chain Executor Service")
-
-
-@app.get("/health", tags=["health"])
-async def health() -> dict[str, str]:
-    """Return a simple health payload for orchestration checks."""
-    return {"status": "ok", "service": SERVICE_NAME}
+__all__ = ["app", "get_app"]
 
 
 def get_app() -> FastAPI:
-    """Return the FastAPI app instance."""
-    return app
+    """Return the configured FastAPI application."""
+
+    return _get_app()
 
 
 if __name__ == "__main__":  # pragma: no cover
