@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
@@ -18,6 +20,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from shared.config.settings import Settings, get_settings
 from shared.llm import resolve_model_spec, resolve_provider
+from shared.llm.chains.category_classifier import CategoryClassifier
 from shared.models.chain import (
     ChainExecutionRequest,
     ChainExecutionResponse,
@@ -34,6 +37,8 @@ SERVICE_NAME = "chain_executor"
 
 app = FastAPI(title="Chain Executor Service")
 router = APIRouter(prefix="/chains", tags=["chains"])
+
+logger = logging.getLogger(__name__)
 
 
 class ChainExecutorSettings(BaseSettings):
@@ -230,6 +235,138 @@ class _ResolvedPrompt:
     template: PromptTemplate
     input_variables: Sequence[str]
     output_key: str
+
+
+_CATEGORY_CLASSIFICATION_CACHE: dict[str, tuple[str, ...]] = {}
+
+
+def _deduplicate_categories(values: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        slug = value.strip()
+        if not slug:
+            continue
+        if slug in seen:
+            continue
+        seen.add(slug)
+        ordered.append(slug)
+    return ordered
+
+
+def _normalize_category_source(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        slug = value.strip()
+        return [slug] if slug else []
+    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray, str)):
+        collected: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                slug = item.strip()
+                if slug:
+                    collected.append(slug)
+        return collected
+    return []
+
+
+def _get_prompt_categories(prompt: ChatPrompt) -> list[str]:
+    categories: list[str] = []
+    direct = getattr(prompt, "categories", None)
+    categories.extend(_normalize_category_source(direct))
+    if isinstance(prompt.metadata, Mapping):
+        categories.extend(_normalize_category_source(prompt.metadata.get("categories")))
+    return _deduplicate_categories(categories)
+
+
+def _set_prompt_categories(prompt: ChatPrompt, categories: Iterable[str]) -> None:
+    normalized = _deduplicate_categories(categories)
+    if hasattr(prompt, "categories"):
+        try:
+            setattr(prompt, "categories", list(normalized))
+        except Exception:  # pragma: no cover - defensive mutation guard
+            pass
+    if isinstance(prompt.metadata, Mapping):
+        if isinstance(prompt.metadata, dict):
+            prompt.metadata["categories"] = list(normalized)
+        else:
+            updated = dict(prompt.metadata)
+            updated["categories"] = list(normalized)
+            prompt.metadata = updated  # type: ignore[assignment]
+    else:
+        prompt.metadata = {"categories": list(normalized)}
+
+
+def _category_cache_key(prompt: ChatPrompt) -> str:
+    parts: list[str] = []
+    if isinstance(prompt.metadata, Mapping):
+        identifier = prompt.metadata.get("id") or prompt.metadata.get("identifier")
+        if identifier:
+            parts.append(f"id:{identifier}")
+    if isinstance(prompt.key, ChatPromptKey):
+        parts.append(f"key:{prompt.key.value}")
+    elif prompt.key:
+        parts.append(f"key:{prompt.key}")
+    if prompt.title:
+        parts.append(f"title:{prompt.title}")
+    if prompt.template:
+        digest = hashlib.sha1(prompt.template.strip().encode("utf-8")).hexdigest()
+        parts.append(f"template:{digest}")
+    if prompt.description:
+        digest = hashlib.sha1(prompt.description.strip().encode("utf-8")).hexdigest()
+        parts.append(f"description:{digest}")
+    if not parts:
+        payload = prompt.model_dump(mode="json", by_alias=True, exclude_none=True)
+        serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        digest = hashlib.sha1(serialized.encode("utf-8")).hexdigest()
+        parts.append(f"payload:{digest}")
+    return "|".join(str(part) for part in parts if part)
+
+
+async def _ensure_prompt_categories(
+    prompt: ChatPrompt,
+    llm: Any,
+    classifier: CategoryClassifier | None,
+) -> CategoryClassifier | None:
+    existing = _get_prompt_categories(prompt)
+    if existing:
+        _set_prompt_categories(prompt, existing)
+        return classifier
+
+    cache_key = _category_cache_key(prompt)
+    cached = _CATEGORY_CLASSIFICATION_CACHE.get(cache_key)
+    if cached is not None:
+        _set_prompt_categories(prompt, cached)
+        return classifier
+
+    classifier = classifier or CategoryClassifier.create(llm)
+
+    prompt_payload = prompt.model_dump(mode="json", by_alias=True, exclude_none=True)
+    prompt_json = json.dumps(prompt_payload, ensure_ascii=False, indent=2)
+
+    try:
+        chain = classifier.chain
+        ainvoke = getattr(chain, "ainvoke", None)
+        if callable(ainvoke):
+            result = await ainvoke({"prompt_json": prompt_json})
+        else:  # pragma: no cover - legacy synchronous chains
+            result = await asyncio.to_thread(chain.invoke, {"prompt_json": prompt_json})
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning("Prompt category classification failed: %s", exc, exc_info=True)
+        return classifier
+
+    output_key = getattr(classifier.chain, "output_key", "text")
+    raw_output: str
+    if isinstance(result, Mapping):
+        raw_output = str(result.get(output_key) or result.get("text") or "")
+    else:
+        raw_output = str(result)
+
+    categories = tuple(classifier.parse_response(raw_output))
+    _CATEGORY_CLASSIFICATION_CACHE[cache_key] = categories
+    _set_prompt_categories(prompt, categories)
+    return classifier
 
 
 _OUTPUT_KEY_SANITIZER = re.compile(r"[^0-9a-zA-Z]+")
@@ -469,6 +606,7 @@ async def execute_chain(
     used_output_keys: set[str] = set()
     resolved_prompts: list[_ResolvedPrompt] = []
     steps: list[ChainStepResult] = []
+    category_classifier: CategoryClassifier | None = None
 
     for index, item in enumerate(payload.chain):
         try:
@@ -481,6 +619,10 @@ async def execute_chain(
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
             ) from exc
+
+        category_classifier = await _ensure_prompt_categories(
+            prompt, llm, category_classifier
+        )
 
         resolved = _prepare_prompt(prompt, index, available_variables, used_output_keys)
         resolved_prompts.append(resolved)
