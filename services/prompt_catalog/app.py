@@ -6,12 +6,21 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from shared.models.chat import ChatPrompt, ChatPromptKey
+from shared.observability.logger import configure_logging
+from shared.observability.middleware import (
+    CorrelationIdMiddleware,
+    RequestTimingMiddleware,
+)
 
 from .repositories import PromptRepository, get_prompt_repository
 
 SERVICE_NAME = "prompt_catalog"
 
+configure_logging(service_name=SERVICE_NAME)
+
 app = FastAPI(title="Prompt Catalog Service")
+app.add_middleware(RequestTimingMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
 
 
 class PromptCollectionResponse(BaseModel):
