@@ -1,20 +1,17 @@
-"""Patient Context service placeholder application."""
+"""Entrypoint module for running the Patient Context FastAPI service."""
+
+from __future__ import annotations
 
 from fastapi import FastAPI
 
-SERVICE_NAME = "patient_context"
+from .app import app
 
-app = FastAPI(title="Patient Context Service")
-
-
-@app.get("/health", tags=["health"])
-async def health() -> dict[str, str]:
-    """Return a simple health payload for orchestration checks."""
-    return {"status": "ok", "service": SERVICE_NAME}
+__all__ = ["app", "get_app"]
 
 
 def get_app() -> FastAPI:
-    """Return the FastAPI app instance."""
+    """Return the configured FastAPI application."""
+
     return app
 
 
