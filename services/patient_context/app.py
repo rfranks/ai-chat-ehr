@@ -7,12 +7,22 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from repositories.emr import EMRRepository
 from services.patient_context.mappers import map_patient_context, map_patient_record
 from shared.models import EHRPatientContext, PatientRecord
+from shared.observability.logger import configure_logging
+from shared.observability.middleware import (
+    CorrelationIdMiddleware,
+    RequestTimingMiddleware,
+)
 
 SERVICE_NAME = "patient_context"
+
+configure_logging(service_name=SERVICE_NAME)
 
 app = FastAPI(title="Patient Context Service")
 router = APIRouter(prefix="/patients", tags=["patients"])
 _repository = EMRRepository()
+
+app.add_middleware(RequestTimingMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
 
 
 def get_repository() -> EMRRepository:

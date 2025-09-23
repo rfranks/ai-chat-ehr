@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -40,13 +39,23 @@ from shared.models.chat import (
     EHRPatientContext,
     PromptChainItem,
 )
+from shared.observability.logger import configure_logging, get_logger
+from shared.observability.middleware import (
+    CorrelationIdMiddleware,
+    RequestTimingMiddleware,
+)
 
 SERVICE_NAME = "chain_executor"
+
+configure_logging(service_name=SERVICE_NAME)
 
 app = FastAPI(title="Chain Executor Service")
 router = APIRouter(prefix="/chains", tags=["chains"])
 
-logger = logging.getLogger(__name__)
+app.add_middleware(RequestTimingMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
+
+logger = get_logger(__name__)
 
 
 class ChainExecutorSettings(BaseSettings):
@@ -373,7 +382,11 @@ async def _ensure_prompt_categories(
         else:  # pragma: no cover - legacy synchronous chains
             result = await asyncio.to_thread(chain.invoke, {"prompt_json": prompt_json})
     except Exception as exc:  # pragma: no cover - defensive logging
-        logger.warning("Prompt category classification failed: %s", exc, exc_info=True)
+        logger.warning(
+            "prompt_category_classification_failed",
+            error=str(exc),
+            exc_info=True,
+        )
         return classifier
 
     output_key = getattr(classifier.chain, "output_key", "text")
@@ -835,9 +848,9 @@ async def _execute_chain_streaming(
                     except Exception as exc:  # pragma: no cover - defensive logging
                         supports_streaming = False
                         logger.warning(
-                            "Streaming unsupported for %s, falling back to buffered response: %s",
-                            context.provider.value,
-                            exc,
+                            "llm_streaming_not_supported",
+                            provider=context.provider.value,
+                            error=str(exc),
                         )
                         yield _format_sse_event(
                             {
@@ -892,7 +905,7 @@ async def _execute_chain_streaming(
                 }
             )
         except Exception as exc:  # pragma: no cover - defensive logging
-            logger.exception("Streaming chain execution failed: %s", exc)
+            logger.exception("streaming_chain_execution_failed", error=str(exc))
             yield _format_sse_event(
                 {
                     "type": "error",
