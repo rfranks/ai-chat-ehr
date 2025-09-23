@@ -6,13 +6,13 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import HTTPException
-
 from shared.config.settings import Settings
+from shared.http.errors import ProviderUnavailableError
 
 from ._base import (
     BaseLanguageModel,
     DEFAULT_MAX_RETRIES,
+    attach_retry,
     apply_temperature,
     resolve_settings,
 )
@@ -34,12 +34,13 @@ def _resolve_credentials_path(explicit_path: Optional[str]) -> Optional[str]:
     if explicit_path and explicit_path.strip():
         expanded = Path(explicit_path).expanduser()
         if not expanded.exists():
-            raise HTTPException(
-                status_code=500,
+            raise ProviderUnavailableError(
+                "vertex",
                 detail=(
-                    "Vertex AI credentials file configured in VERTEX_CREDENTIALS_FILE does "
-                    "not exist."
+                    "Vertex AI credentials file configured in VERTEX_CREDENTIALS_FILE "
+                    "does not exist."
                 ),
+                reason="credentials_file_missing",
             )
         return str(expanded)
 
@@ -47,12 +48,13 @@ def _resolve_credentials_path(explicit_path: Optional[str]) -> Optional[str]:
     if env_path and env_path.strip():
         expanded = Path(env_path).expanduser()
         if not expanded.exists():
-            raise HTTPException(
-                status_code=500,
+            raise ProviderUnavailableError(
+                "vertex",
                 detail=(
                     "Vertex AI credentials file referenced by GOOGLE_APPLICATION_CREDENTIALS "
                     "does not exist."
                 ),
+                reason="env_credentials_missing",
             )
         return str(expanded)
 
@@ -74,20 +76,22 @@ def get_chat_model(
     location = (vertex_settings.location or "").strip()
 
     if not project_id:
-        raise HTTPException(
-            status_code=500,
+        raise ProviderUnavailableError(
+            "vertex",
             detail=(
                 "Vertex AI project ID is not configured. Set the VERTEX_PROJECT_ID "
                 "environment variable to enable Gemini models."
             ),
+            reason="missing_project_id",
         )
     if not location:
-        raise HTTPException(
-            status_code=500,
+        raise ProviderUnavailableError(
+            "vertex",
             detail=(
                 "Vertex AI location is not configured. Set the VERTEX_LOCATION environment "
                 "variable to enable Gemini models."
             ),
+            reason="missing_location",
         )
 
     resolved_model_name = model_name
@@ -96,12 +100,13 @@ def get_chat_model(
 
     credentials_path = _resolve_credentials_path(vertex_settings.credentials_file)
     if credentials_path is None and not os.environ.get("GOOGLE_CLOUD_PROJECT"):
-        raise HTTPException(
-            status_code=500,
+        raise ProviderUnavailableError(
+            "vertex",
             detail=(
                 "Vertex AI credentials are not configured. Provide VERTEX_CREDENTIALS_FILE "
                 "or set GOOGLE_APPLICATION_CREDENTIALS to a service account key."
             ),
+            reason="missing_credentials",
         )
 
     kwargs: Dict[str, Any] = {
@@ -115,7 +120,12 @@ def get_chat_model(
     if credentials_path:
         kwargs["credentials_path"] = credentials_path
 
-    return ChatVertexAI(**kwargs)
+    model = ChatVertexAI(**kwargs)
+    return attach_retry(
+        model,
+        label=f"vertex/{resolved_model_name}",
+        max_attempts=DEFAULT_MAX_RETRIES,
+    )
 
 
 __all__ = ["get_chat_model"]

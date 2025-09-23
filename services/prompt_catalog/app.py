@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel, Field
 
+from shared.http.errors import PromptNotFoundError, register_exception_handlers
 from shared.models.chat import ChatPrompt, ChatPromptKey
 from shared.observability.logger import configure_logging
 from shared.observability.middleware import (
@@ -21,6 +22,7 @@ configure_logging(service_name=SERVICE_NAME)
 app = FastAPI(title="Prompt Catalog Service")
 app.add_middleware(RequestTimingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
+register_exception_handlers(app)
 
 
 class PromptCollectionResponse(BaseModel):
@@ -85,7 +87,7 @@ async def get_prompt(
 
     prompt = await repository.get_prompt(prompt_id)
     if prompt is None:
-        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
+        raise PromptNotFoundError(prompt_id)
     return PromptResponse(prompt=prompt)
 
 

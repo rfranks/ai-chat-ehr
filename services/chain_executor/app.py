@@ -39,6 +39,11 @@ from shared.models.chat import (
     EHRPatientContext,
     PromptChainItem,
 )
+from shared.http.errors import (
+    ProblemDetailsException,
+    PromptNotFoundError,
+    register_exception_handlers,
+)
 from shared.observability.logger import configure_logging, get_logger
 from shared.observability.middleware import (
     CorrelationIdMiddleware,
@@ -54,6 +59,7 @@ router = APIRouter(prefix="/chains", tags=["chains"])
 
 app.add_middleware(RequestTimingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
+register_exception_handlers(app)
 
 logger = get_logger(__name__)
 
@@ -125,14 +131,6 @@ async def get_patient_http_client(
 
 class PromptCatalogServiceError(RuntimeError):
     """Raised when the prompt catalog service cannot satisfy a request."""
-
-
-class PromptNotFoundError(PromptCatalogServiceError):
-    """Raised when a prompt identifier cannot be resolved."""
-
-    def __init__(self, identifier: str) -> None:
-        super().__init__(f"Prompt '{identifier}' was not found.")
-        self.identifier = identifier
 
 
 class PatientContextServiceError(RuntimeError):
@@ -673,7 +671,7 @@ async def _build_execution_context(
             temperature=payload.temperature,
             model_override=model_identifier,
         )
-    except HTTPException:
+    except (ProblemDetailsException, HTTPException):
         raise
     except Exception as exc:  # pragma: no cover - unexpected provider failure
         raise HTTPException(
@@ -722,8 +720,11 @@ async def _build_execution_context(
         try:
             prompt = await _resolve_prompt(item, prompt_client)
         except PromptNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            prompt_id = getattr(exc, "identifier", getattr(item, "value", str(item)))
+            raise PromptNotFoundError(
+                prompt_id,
+                detail=str(exc),
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             ) from exc
         except PromptCatalogServiceError as exc:
             raise HTTPException(
@@ -894,6 +895,17 @@ async def _execute_chain_streaming(
                     "response": response.model_dump(
                         mode="json", by_alias=True, exclude_none=True
                     ),
+                }
+            )
+        except ProblemDetailsException as exc:
+            problem = exc.to_problem_details()
+            yield _format_sse_event(
+                {
+                    "type": "error",
+                    "status": problem.status,
+                    "detail": problem.detail,
+                    "title": problem.title,
+                    "problem": problem.model_dump(mode="json", exclude_none=True),
                 }
             )
         except HTTPException as exc:

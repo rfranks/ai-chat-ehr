@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import HTTPException
-
 from shared.config.settings import Settings
+from shared.http.errors import ProviderUnavailableError
 
 from ._base import (
     BaseLanguageModel,
     DEFAULT_MAX_RETRIES,
+    attach_retry,
     apply_temperature,
     resolve_settings,
 )
@@ -40,20 +40,22 @@ def get_chat_model(
     api_key = (azure_settings.api_key or "").strip()
     endpoint = (azure_settings.endpoint or "").strip()
     if not api_key:
-        raise HTTPException(
-            status_code=500,
+        raise ProviderUnavailableError(
+            "azure",
             detail=(
                 "Azure OpenAI API key is not configured. Set the AZURE_API_KEY "
                 "environment variable to enable Azure-backed models."
             ),
+            reason="missing_api_key",
         )
     if not endpoint:
-        raise HTTPException(
-            status_code=500,
+        raise ProviderUnavailableError(
+            "azure",
             detail=(
                 "Azure OpenAI endpoint is not configured. Set the AZURE_ENDPOINT "
                 "environment variable to enable Azure-backed models."
             ),
+            reason="missing_endpoint",
         )
 
     deployment_name = model_name
@@ -61,12 +63,13 @@ def get_chat_model(
         deployment_name = azure_settings.deployment_name
     deployment_name = (deployment_name or "").strip()
     if not deployment_name:
-        raise HTTPException(
-            status_code=500,
+        raise ProviderUnavailableError(
+            "azure",
             detail=(
                 "Azure OpenAI deployment name is not configured. Provide either an "
                 "explicit model override or set AZURE_DEPLOYMENT_NAME."
             ),
+            reason="missing_deployment",
         )
 
     kwargs: Dict[str, Any] = {
@@ -85,7 +88,12 @@ def get_chat_model(
         kwargs["openai_api_version"] = azure_settings.api_version
         kwargs["api_version"] = azure_settings.api_version
 
-    return AzureChatOpenAI(**kwargs)
+    model = AzureChatOpenAI(**kwargs)
+    return attach_retry(
+        model,
+        label=f"azure/{deployment_name}",
+        max_attempts=DEFAULT_MAX_RETRIES,
+    )
 
 
 __all__ = ["get_chat_model"]
