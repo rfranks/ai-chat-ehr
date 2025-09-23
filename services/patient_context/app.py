@@ -12,6 +12,7 @@ from shared.observability.middleware import (
     CorrelationIdMiddleware,
     RequestTimingMiddleware,
 )
+from shared.http.errors import register_exception_handlers
 
 SERVICE_NAME = "patient_context"
 
@@ -23,6 +24,7 @@ _repository = EMRRepository()
 
 app.add_middleware(RequestTimingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
+register_exception_handlers(app)
 
 
 def get_repository() -> EMRRepository:

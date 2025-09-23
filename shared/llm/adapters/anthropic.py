@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import HTTPException
-
 from shared.config.settings import Settings
+from shared.http.errors import ProviderUnavailableError
 
 from ._base import (
     BaseLanguageModel,
     DEFAULT_MAX_RETRIES,
+    attach_retry,
     apply_temperature,
     resolve_settings,
 )
@@ -38,12 +38,13 @@ def get_chat_model(
     anthropic_settings = resolved_settings.anthropic
     api_key = (anthropic_settings.api_key or "").strip()
     if not api_key:
-        raise HTTPException(
-            status_code=500,
+        raise ProviderUnavailableError(
+            "anthropic",
             detail=(
                 "Anthropic API key is not configured. Set the ANTHROPIC_API_KEY "
                 "environment variable to enable Claude models."
             ),
+            reason="missing_api_key",
         )
 
     kwargs: Dict[str, Any] = {
@@ -58,7 +59,12 @@ def get_chat_model(
         kwargs["base_url"] = anthropic_settings.base_url
         kwargs["anthropic_api_url"] = anthropic_settings.base_url
 
-    return ChatAnthropic(**kwargs)
+    model = ChatAnthropic(**kwargs)
+    return attach_retry(
+        model,
+        label=f"anthropic/{model_name}",
+        max_attempts=DEFAULT_MAX_RETRIES,
+    )
 
 
 __all__ = ["get_chat_model"]

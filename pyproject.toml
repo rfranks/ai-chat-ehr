@@ -22,7 +22,8 @@ dependencies = [
     "openai>=1.14,<2",
     "anthropic>=0.21,<0.22",
     "loguru>=0.7,<0.8",
-    "structlog>=24.1,<25"
+    "structlog>=24.1,<25",
+    "tenacity>=8.2,<9"
 ]
 
 [project.urls]
