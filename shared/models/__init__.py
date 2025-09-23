@@ -1,12 +1,15 @@
 """Shared Pydantic models used across ChatEHR services."""
 
+from .chain import (
+    ChainExecutionRequest,
+    ChainExecutionResponse,
+    ChainStepResult,
+    PromptSelector,
+)
 from .chat import (
     Allergy,
     CarePlanItem,
     CareTeamMember,
-    ChainExecutionRequest,
-    ChainExecutionResponse,
-    ChainExecutionStep,
     ChatMessage,
     ChatMessageRole,
     ChatPrompt,
@@ -37,7 +40,7 @@ __all__ = [
     "CareTeamMember",
     "ChainExecutionRequest",
     "ChainExecutionResponse",
-    "ChainExecutionStep",
+    "ChainStepResult",
     "ChatMessage",
     "ChatMessageRole",
     "ChatPrompt",
@@ -58,6 +61,7 @@ __all__ = [
     "PatientRecord",
     "Problem",
     "Procedure",
+    "PromptSelector",
     "SocialHistoryItem",
     "VitalSign",
 ]

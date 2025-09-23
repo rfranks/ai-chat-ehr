@@ -470,116 +470,6 @@ class ChatResponse(CamelModel):
 
 
 # ---------------------------------------------------------------------------
-# Chain execution models
-# ---------------------------------------------------------------------------
-
-
-class ChainExecutionStep(CamelModel):
-    """Metadata describing a single step executed within a prompt chain."""
-
-    prompt: ChatPrompt = Field(description="Resolved prompt configuration for the step")
-    output_key: str = Field(description="Key assigned to the step's output")
-
-
-class ChainExecutionRequest(CamelModel):
-    """Request payload describing a prompt chain to execute."""
-
-    chain: list[PromptChainItem] = Field(
-        description="Ordered prompts or raw instructions to execute",
-        min_length=1,
-    )
-    patient_id: Optional[str] = Field(
-        default=None, description="Optional patient identifier for context retrieval"
-    )
-    variables: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Initial variables supplied to the chain for template rendering",
-    )
-    provider: Optional[str] = Field(
-        default=None,
-        description="Optional provider identifier or alias to select an LLM backend",
-    )
-    model: Optional[str] = Field(
-        default=None, description="Optional model name override for the selected provider"
-    )
-    temperature: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=2.0,
-        description="Optional temperature override for generation",
-    )
-    max_tokens: Optional[int] = Field(
-        default=None,
-        ge=1,
-        description="Optional maximum number of tokens for the final response",
-    )
-    top_p: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Optional nucleus sampling parameter",
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Arbitrary metadata for client bookkeeping"
-    )
-
-    @field_validator("chain", mode="before")
-    @classmethod
-    def _validate_chain(
-        cls, value: Any
-    ) -> Sequence[PromptChainItem]:  # pragma: no cover - simple normalization
-        return _normalize_chain(value)
-
-
-class ChainExecutionResponse(CamelModel):
-    """Response payload returned after executing a prompt chain."""
-
-    steps: list[ChainExecutionStep] = Field(
-        default_factory=list,
-        description="Resolved steps that were executed as part of the chain",
-    )
-    outputs: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Mapping of step output keys to generated text",
-    )
-    inputs: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Initial variables supplied for the execution",
-    )
-    final_output_key: Optional[str] = Field(
-        default=None, description="Identifier for the final step in the chain"
-    )
-    final_output: Optional[Any] = Field(
-        default=None, description="Content produced by the final step"
-    )
-    provider: Optional[str] = Field(
-        default=None,
-        description="Canonical provider selected for execution",
-    )
-    model: Optional[str] = Field(
-        default=None,
-        description="Provider specific model name used for execution",
-    )
-    patient_context: Optional[EHRPatientContext] = Field(
-        default=None, description="Patient context payload retrieved for execution"
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Arbitrary metadata associated with the run"
-    )
-
-    @field_validator("steps", mode="before")
-    @classmethod
-    def _validate_steps(
-        cls, value: Any
-    ) -> Sequence[ChainExecutionStep]:  # pragma: no cover - simple normalization
-        if value is None:
-            return []
-        if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray, str)):
-            return [ChainExecutionStep.model_validate(item) for item in value]
-        raise TypeError("steps must be a sequence of ChainExecutionStep definitions")
-
-
-# ---------------------------------------------------------------------------
 # Shared chain normalization logic
 # ---------------------------------------------------------------------------
 
@@ -641,9 +531,6 @@ __all__ = [
     "ClinicalNote",
     "EHRPatientContext",
     "Encounter",
-    "ChainExecutionRequest",
-    "ChainExecutionResponse",
-    "ChainExecutionStep",
     "FamilyHistoryItem",
     "ImagingStudy",
     "Immunization",

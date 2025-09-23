@@ -18,10 +18,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from shared.config.settings import Settings, get_settings
 from shared.llm import resolve_model_spec, resolve_provider
-from shared.models.chat import (
+from shared.models.chain import (
     ChainExecutionRequest,
     ChainExecutionResponse,
-    ChainExecutionStep,
+    ChainStepResult,
+)
+from shared.models.chat import (
     ChatPrompt,
     ChatPromptKey,
     EHRPatientContext,
@@ -406,12 +408,14 @@ async def execute_chain(
 ) -> ChainExecutionResponse:
     """Execute a sequence of prompts using the configured language model provider."""
 
-    provider_identifier = payload.provider.strip() if payload.provider else None
     model_identifier = payload.model.strip() if payload.model else None
 
-    provider_hint = (
-        resolve_provider(provider_identifier) if provider_identifier else None
-    )
+    provider_hint = payload.model_provider
+    if payload.provider:
+        legacy_identifier = payload.provider.strip()
+        if legacy_identifier:
+            provider_hint = resolve_provider(legacy_identifier)
+
     model_spec = resolve_model_spec(model_identifier, provider_hint=provider_hint)
     provider = model_spec.provider
 
@@ -464,7 +468,7 @@ async def execute_chain(
 
     used_output_keys: set[str] = set()
     resolved_prompts: list[_ResolvedPrompt] = []
-    steps: list[ChainExecutionStep] = []
+    steps: list[ChainStepResult] = []
 
     for index, item in enumerate(payload.chain):
         try:
@@ -480,7 +484,7 @@ async def execute_chain(
 
         resolved = _prepare_prompt(prompt, index, available_variables, used_output_keys)
         resolved_prompts.append(resolved)
-        steps.append(ChainExecutionStep(prompt=resolved.prompt, output_key=resolved.output_key))
+        steps.append(ChainStepResult(prompt=resolved.prompt, output_key=resolved.output_key))
         available_variables.add(resolved.output_key)
 
     llm_chains: list[LLMChain] = []
@@ -528,6 +532,7 @@ async def execute_chain(
         inputs=variables,
         final_output_key=final_output_key,
         final_output=final_output,
+        model_provider=provider,
         provider=provider.value,
         model=model_spec.model_name,
         patient_context=patient_context,
