@@ -1,0 +1,84 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "API Gateway",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "services.api_gateway.app:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "pip install (workspace)"
+        },
+        {
+            "name": "Prompt Catalog",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "services.prompt_catalog.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8001"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "pip install (workspace)"
+        },
+        {
+            "name": "Patient Context",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "services.patient_context.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8002"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "pip install (workspace)"
+        },
+        {
+            "name": "Chain Executor",
+            "type": "python",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "services.chain_executor.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8003"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "pip install (workspace)"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "All Microservices",
+            "configurations": [
+                "API Gateway",
+                "Prompt Catalog",
+                "Patient Context",
+                "Chain Executor"
+            ]
+        }
+    ]
+}
