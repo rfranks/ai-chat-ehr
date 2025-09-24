@@ -12,18 +12,22 @@ from ._base import (
     DEFAULT_MAX_RETRIES,
     attach_retry,
     apply_temperature,
+    filter_model_kwargs,
     resolve_settings,
 )
 
-try:  # pragma: no cover - optional dependency shim
-    from langchain.chat_models import ChatOpenAI
+try:
+    from langchain_openai import ChatOpenAI
 except ImportError as exc:  # pragma: no cover
-    try:
-        from langchain_openai import ChatOpenAI  # type: ignore
-    except ImportError:  # pragma: no cover
-        raise RuntimeError(
-            "OpenAI chat support requires the LangChain OpenAI integration."
-        ) from exc
+    _openai_import_error = exc
+
+    class ChatOpenAI:  # type: ignore[override]
+        """Placeholder when ``langchain-openai`` is unavailable."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
+            raise RuntimeError(
+                "OpenAI chat support requires the langchain-openai package."
+            ) from _openai_import_error
 
 
 def get_chat_model(
@@ -47,25 +51,26 @@ def get_chat_model(
             reason="missing_api_key",
         )
 
-    kwargs: Dict[str, Any] = {
-        "model_name": model_name,
+    candidate_kwargs: Dict[str, Any] = {
         "model": model_name,
+        "model_name": model_name,
         "api_key": api_key,
         "openai_api_key": api_key,
         "max_retries": DEFAULT_MAX_RETRIES,
     }
-    apply_temperature(kwargs, temperature)
+    apply_temperature(candidate_kwargs, temperature)
 
     if openai_settings.organization:
-        kwargs["organization"] = openai_settings.organization
-        kwargs["openai_organization"] = openai_settings.organization
+        candidate_kwargs["organization"] = openai_settings.organization
+        candidate_kwargs["openai_organization"] = openai_settings.organization
     if openai_settings.project:
-        kwargs["project"] = openai_settings.project
+        candidate_kwargs["project"] = openai_settings.project
     if openai_settings.base_url:
-        kwargs["base_url"] = openai_settings.base_url
-        kwargs["openai_api_base"] = openai_settings.base_url
+        candidate_kwargs["base_url"] = openai_settings.base_url
+        candidate_kwargs["openai_api_base"] = openai_settings.base_url
 
-    model = ChatOpenAI(**kwargs)
+    model_kwargs = filter_model_kwargs(ChatOpenAI, candidate_kwargs)
+    model = ChatOpenAI(**model_kwargs)
     return attach_retry(
         model,
         label=f"openai/{model_name}",

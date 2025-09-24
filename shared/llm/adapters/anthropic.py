@@ -12,18 +12,22 @@ from ._base import (
     DEFAULT_MAX_RETRIES,
     attach_retry,
     apply_temperature,
+    filter_model_kwargs,
     resolve_settings,
 )
 
-try:  # pragma: no cover - optional dependency shim
-    from langchain.chat_models import ChatAnthropic
+try:
+    from langchain_anthropic import ChatAnthropic
 except ImportError as exc:  # pragma: no cover
-    try:
-        from langchain_anthropic import ChatAnthropic  # type: ignore
-    except ImportError:  # pragma: no cover
-        raise RuntimeError(
-            "Anthropic chat support requires the LangChain Anthropic integration."
-        ) from exc
+    _anthropic_import_error = exc
+
+    class ChatAnthropic:  # type: ignore[override]
+        """Placeholder when ``langchain-anthropic`` is unavailable."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
+            raise RuntimeError(
+                "Anthropic chat support requires the langchain-anthropic package."
+            ) from _anthropic_import_error
 
 
 def get_chat_model(
@@ -47,19 +51,21 @@ def get_chat_model(
             reason="missing_api_key",
         )
 
-    kwargs: Dict[str, Any] = {
+    candidate_kwargs: Dict[str, Any] = {
         "model": model_name,
+        "model_name": model_name,
         "api_key": api_key,
         "anthropic_api_key": api_key,
         "max_retries": DEFAULT_MAX_RETRIES,
     }
-    apply_temperature(kwargs, temperature)
+    apply_temperature(candidate_kwargs, temperature)
 
     if anthropic_settings.base_url:
-        kwargs["base_url"] = anthropic_settings.base_url
-        kwargs["anthropic_api_url"] = anthropic_settings.base_url
+        candidate_kwargs["base_url"] = anthropic_settings.base_url
+        candidate_kwargs["anthropic_api_url"] = anthropic_settings.base_url
 
-    model = ChatAnthropic(**kwargs)
+    model_kwargs = filter_model_kwargs(ChatAnthropic, candidate_kwargs)
+    model = ChatAnthropic(**model_kwargs)
     return attach_retry(
         model,
         label=f"anthropic/{model_name}",
