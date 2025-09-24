@@ -2,6 +2,16 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = [
+    "shared*",
+    "services*",
+    "repositories*",
+]
+exclude = [
+    "tests*",
+]
+
 [project]
 name = "ai-chat-ehr"
 version = "0.1.0"
