@@ -1,0 +1,2136 @@
+{
+  "components": {
+    "schemas": {
+      "Allergy": {
+        "description": "Allergy or intolerance record.",
+        "properties": {
+          "comments": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comments"
+          },
+          "notedDate": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Noteddate"
+          },
+          "reaction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reaction"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "substance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Substance"
+          }
+        },
+        "title": "Allergy",
+        "type": "object"
+      },
+      "CarePlanItem": {
+        "description": "Entries in a care plan or set of recommendations.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "due": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "CarePlanItem",
+        "type": "object"
+      },
+      "CareTeamMember": {
+        "description": "Care team participants.",
+        "properties": {
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "title": "CareTeamMember",
+        "type": "object"
+      },
+      "ChainExecutionRequest": {
+        "description": "Request payload describing a prompt chain to execute.",
+        "properties": {
+          "chain": {
+            "description": "Ordered prompts or raw instructions to execute",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ChatPromptKey"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatPrompt-Input"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Chain",
+            "type": "array"
+          },
+          "maxTokens": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional maximum number of tokens for the final response",
+            "title": "Maxtokens"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "description": "Arbitrary metadata for client bookkeeping",
+            "title": "Metadata",
+            "type": "object"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional model name override for the selected provider",
+            "title": "Model"
+          },
+          "modelProvider": {
+            "$ref": "#/components/schemas/LLMProvider",
+            "default": "openai/gpt-3.5-turbo",
+            "description": "Language model provider to use for execution"
+          },
+          "patientId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional patient identifier for context retrieval",
+            "title": "Patientid"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional legacy provider identifier; prefer 'model_provider'",
+            "title": "Provider"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional temperature override for generation",
+            "title": "Temperature"
+          },
+          "topP": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional nucleus sampling parameter",
+            "title": "Topp"
+          },
+          "variables": {
+            "additionalProperties": true,
+            "description": "Initial variables supplied to the chain for template rendering",
+            "title": "Variables",
+            "type": "object"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "title": "ChainExecutionRequest",
+        "type": "object"
+      },
+      "ChainExecutionResponse": {
+        "description": "Response payload returned after executing a prompt chain.",
+        "properties": {
+          "finalOutput": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Content produced by the final step",
+            "title": "Finaloutput"
+          },
+          "finalOutputKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Identifier for the final step in the chain",
+            "title": "Finaloutputkey"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "description": "Initial variables supplied for the execution",
+            "title": "Inputs",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "description": "Arbitrary metadata associated with the run",
+            "title": "Metadata",
+            "type": "object"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Provider specific model name used for execution",
+            "title": "Model"
+          },
+          "modelProvider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LLMProvider"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical provider selected for execution"
+          },
+          "outputs": {
+            "additionalProperties": true,
+            "description": "Mapping of step output keys to generated text",
+            "title": "Outputs",
+            "type": "object"
+          },
+          "patientContext": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EHRPatientContext"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Patient context payload retrieved for execution"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "String representation of the provider used (deprecated)",
+            "title": "Provider"
+          },
+          "steps": {
+            "description": "Resolved steps that were executed as part of the chain",
+            "items": {
+              "$ref": "#/components/schemas/ChainStepResult"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "title": "ChainExecutionResponse",
+        "type": "object"
+      },
+      "ChainStepResult": {
+        "description": "Metadata describing a single executed step in a prompt chain.",
+        "properties": {
+          "outputKey": {
+            "description": "Key assigned to the step's output",
+            "title": "Outputkey",
+            "type": "string"
+          },
+          "prompt": {
+            "$ref": "#/components/schemas/ChatPrompt-Output",
+            "description": "Resolved prompt configuration for the step"
+          }
+        },
+        "required": [
+          "prompt",
+          "outputKey"
+        ],
+        "title": "ChainStepResult",
+        "type": "object"
+      },
+      "ChatPrompt-Input": {
+        "description": "Metadata describing a reusable chat prompt template.",
+        "properties": {
+          "chain": {
+            "description": "Sequence of additional prompts or raw instructions to execute prior to this prompt",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ChatPromptKey"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatPrompt-Input"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Chain",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detailed explanation of the prompt's purpose",
+            "title": "Description"
+          },
+          "inputVariables": {
+            "description": "Names of variables expected by the template",
+            "items": {
+              "type": "string"
+            },
+            "title": "Inputvariables",
+            "type": "array"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatPromptKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical identifier for the prompt"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "description": "Arbitrary metadata for the prompt",
+            "title": "Metadata",
+            "type": "object"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Prompt template text that may contain replacement variables",
+            "title": "Template"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human readable label",
+            "title": "Title"
+          }
+        },
+        "title": "ChatPrompt",
+        "type": "object"
+      },
+      "ChatPrompt-Output": {
+        "description": "Metadata describing a reusable chat prompt template.",
+        "properties": {
+          "chain": {
+            "description": "Sequence of additional prompts or raw instructions to execute prior to this prompt",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ChatPromptKey"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatPrompt-Output"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Chain",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detailed explanation of the prompt's purpose",
+            "title": "Description"
+          },
+          "inputVariables": {
+            "description": "Names of variables expected by the template",
+            "items": {
+              "type": "string"
+            },
+            "title": "Inputvariables",
+            "type": "array"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatPromptKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical identifier for the prompt"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "description": "Arbitrary metadata for the prompt",
+            "title": "Metadata",
+            "type": "object"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Prompt template text that may contain replacement variables",
+            "title": "Template"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human readable label",
+            "title": "Title"
+          }
+        },
+        "title": "ChatPrompt",
+        "type": "object"
+      },
+      "ChatPromptKey": {
+        "description": "Canonical identifiers for reusable chat prompts.",
+        "enum": [
+          "patient_context",
+          "patient_summary",
+          "differential_diagnosis",
+          "clinical_plan",
+          "follow_up_questions",
+          "patient_education",
+          "safety_checks",
+          "triage_assessment"
+        ],
+        "title": "ChatPromptKey",
+        "type": "string"
+      },
+      "ClinicalDocument": {
+        "description": "Structured clinical documents linked to the record.",
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "documentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentid"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "ClinicalDocument",
+        "type": "object"
+      },
+      "ClinicalNote": {
+        "description": "Clinical note metadata and content.",
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "noteId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Noteid"
+          },
+          "noteType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notetype"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "ClinicalNote",
+        "type": "object"
+      },
+      "EHRPatientContext": {
+        "description": "Patient context payload curated for chat workflows.",
+        "properties": {
+          "additionalNotes": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicalNote"
+            },
+            "title": "Additionalnotes",
+            "type": "array"
+          },
+          "allergies": {
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            },
+            "title": "Allergies",
+            "type": "array"
+          },
+          "assessment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
+          },
+          "careTeam": {
+            "items": {
+              "$ref": "#/components/schemas/CareTeamMember"
+            },
+            "title": "Careteam",
+            "type": "array"
+          },
+          "chiefComplaint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chiefcomplaint"
+          },
+          "clinicalDocuments": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicalDocument"
+            },
+            "title": "Clinicaldocuments",
+            "type": "array"
+          },
+          "clinicalNotes": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicalNote"
+            },
+            "title": "Clinicalnotes",
+            "type": "array"
+          },
+          "demographics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PatientDemographics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "encounters": {
+            "items": {
+              "$ref": "#/components/schemas/Encounter"
+            },
+            "title": "Encounters",
+            "type": "array"
+          },
+          "familyHistory": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyHistoryItem"
+            },
+            "title": "Familyhistory",
+            "type": "array"
+          },
+          "followUpActions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Followupactions",
+            "type": "array"
+          },
+          "goals": {
+            "items": {
+              "$ref": "#/components/schemas/CarePlanItem"
+            },
+            "title": "Goals",
+            "type": "array"
+          },
+          "historyOfPresentIllness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historyofpresentillness"
+          },
+          "imaging": {
+            "items": {
+              "$ref": "#/components/schemas/ImagingStudy"
+            },
+            "title": "Imaging",
+            "type": "array"
+          },
+          "immunizations": {
+            "items": {
+              "$ref": "#/components/schemas/Immunization"
+            },
+            "title": "Immunizations",
+            "type": "array"
+          },
+          "labResults": {
+            "items": {
+              "$ref": "#/components/schemas/LabResult"
+            },
+            "title": "Labresults",
+            "type": "array"
+          },
+          "medications": {
+            "items": {
+              "$ref": "#/components/schemas/Medication"
+            },
+            "title": "Medications",
+            "type": "array"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "procedures": {
+            "items": {
+              "$ref": "#/components/schemas/Procedure"
+            },
+            "title": "Procedures",
+            "type": "array"
+          },
+          "socialHistory": {
+            "items": {
+              "$ref": "#/components/schemas/SocialHistoryItem"
+            },
+            "title": "Socialhistory",
+            "type": "array"
+          },
+          "vitalSigns": {
+            "items": {
+              "$ref": "#/components/schemas/VitalSign"
+            },
+            "title": "Vitalsigns",
+            "type": "array"
+          }
+        },
+        "title": "EHRPatientContext",
+        "type": "object"
+      },
+      "Encounter": {
+        "description": "Basic information about a clinical encounter.",
+        "properties": {
+          "encounterId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounterid"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "Encounter",
+        "type": "object"
+      },
+      "FamilyHistoryItem": {
+        "description": "Family history item.",
+        "properties": {
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "relationship": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relationship"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "FamilyHistoryItem",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImagingStudy": {
+        "description": "Summary details from imaging studies.",
+        "properties": {
+          "findings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Findings"
+          },
+          "impression": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impression"
+          },
+          "modality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modality"
+          },
+          "performedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performedat"
+          },
+          "study": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study"
+          }
+        },
+        "title": "ImagingStudy",
+        "type": "object"
+      },
+      "Immunization": {
+        "description": "Immunization history details.",
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "lotNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lotnumber"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "vaccine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vaccine"
+          }
+        },
+        "title": "Immunization",
+        "type": "object"
+      },
+      "LLMProvider": {
+        "description": "Enumerate supported provider/model combinations.",
+        "enum": [
+          "openai/gpt-3.5-turbo",
+          "openai/gpt-4o",
+          "openai/gpt-4o-mini",
+          "azure/gpt-4o",
+          "azure/gpt-4o-mini",
+          "anthropic/claude-3-haiku",
+          "anthropic/claude-3-sonnet",
+          "vertex/gemini-2.5-pro",
+          "vertex/gemini-2.5-flash"
+        ],
+        "title": "LLMProvider",
+        "type": "string"
+      },
+      "LabResult": {
+        "description": "Laboratory result details.",
+        "properties": {
+          "abnormalFlag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abnormalflag"
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collectedat"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "referenceRange": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referencerange"
+          },
+          "resultedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultedat"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "testCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Testcode"
+          },
+          "testName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Testname"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "title": "LabResult",
+        "type": "object"
+      },
+      "Medication": {
+        "description": "Medication order or administration details.",
+        "properties": {
+          "asNeeded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asneeded"
+          },
+          "dose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dose"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency"
+          },
+          "indication": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indication"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "startDate": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startdate"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "Medication",
+        "type": "object"
+      },
+      "PatientDemographics": {
+        "description": "Structured demographic attributes about a patient.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "biologicalSex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Biologicalsex"
+          },
+          "dateOfBirth": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dateofbirth"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "ethnicity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ethnicity"
+          },
+          "firstName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstname"
+          },
+          "fullName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fullname"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "lastName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastname"
+          },
+          "maritalStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maritalstatus"
+          },
+          "middleName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Middlename"
+          },
+          "mrn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Medical record number",
+            "title": "Mrn"
+          },
+          "occupation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupation"
+          },
+          "patientId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unique patient id",
+            "title": "Patientid"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "preferredContactMethod": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferredcontactmethod"
+          },
+          "prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prefix"
+          },
+          "pronouns": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pronouns"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Race"
+          },
+          "suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suffix"
+          }
+        },
+        "title": "PatientDemographics",
+        "type": "object"
+      },
+      "Problem": {
+        "description": "Problem list entry.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "onset": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onset"
+          },
+          "resolved": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "Problem",
+        "type": "object"
+      },
+      "Procedure": {
+        "description": "Procedures performed or planned for the patient.",
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "performer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "Procedure",
+        "type": "object"
+      },
+      "SocialHistoryItem": {
+        "description": "Social history elements relevant to the encounter.",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "recordedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recordedat"
+          }
+        },
+        "title": "SocialHistoryItem",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VitalSign": {
+        "description": "Individual vital sign measurement.",
+        "properties": {
+          "qualifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualifier"
+          },
+          "takenAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takenat"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "title": "VitalSign",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Chain Executor Service",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/chains/execute": {
+      "post": {
+        "description": "Execute a sequence of prompts using the configured language model provider.",
+        "operationId": "execute_chain_chains_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainExecutionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Chain",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
+    "/chains/execute/stream": {
+      "post": {
+        "description": "Stream partial chain results as server-sent events.",
+        "operationId": "stream_chain_execution_chains_execute_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Chain Execution",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Return a simple health payload for orchestration checks.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  }
+}
