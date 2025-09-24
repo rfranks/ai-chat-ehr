@@ -8,7 +8,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from langchain.prompts import PromptTemplate
 
-from shared.models import (
+from shared.models.chat import (
     Allergy,
     CarePlanItem,
     ChatPrompt,
