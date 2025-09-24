@@ -149,10 +149,37 @@ def attach_retry(
     return model
 
 
+def filter_model_kwargs(model_cls: type[Any], kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Return ``kwargs`` entries accepted by the ``model_cls`` constructor."""
+
+    field_names: set[str] = set()
+    for attribute in ("model_fields", "__fields__"):
+        fields = getattr(model_cls, attribute, None)
+        if isinstance(fields, dict):
+            field_names.update(str(name) for name in fields.keys())
+        elif fields is not None:
+            try:
+                field_names.update(str(name) for name in fields)
+            except TypeError:  # pragma: no cover - defensive
+                continue
+
+    if not field_names:
+        return {key: value for key, value in kwargs.items() if value is not None}
+
+    filtered: Dict[str, Any] = {}
+    for key, value in kwargs.items():
+        if value is None:
+            continue
+        if key in field_names:
+            filtered[key] = value
+    return filtered
+
+
 __all__ = [
     "BaseLanguageModel",
     "DEFAULT_MAX_RETRIES",
     "resolve_settings",
     "apply_temperature",
     "attach_retry",
+    "filter_model_kwargs",
 ]

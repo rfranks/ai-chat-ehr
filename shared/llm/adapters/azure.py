@@ -12,18 +12,22 @@ from ._base import (
     DEFAULT_MAX_RETRIES,
     attach_retry,
     apply_temperature,
+    filter_model_kwargs,
     resolve_settings,
 )
 
-try:  # pragma: no cover - optional dependency shim
-    from langchain.chat_models import AzureChatOpenAI
+try:
+    from langchain_openai import AzureChatOpenAI
 except ImportError as exc:  # pragma: no cover
-    try:
-        from langchain_openai import AzureChatOpenAI  # type: ignore
-    except ImportError:  # pragma: no cover
-        raise RuntimeError(
-            "Azure OpenAI chat support requires the LangChain OpenAI integration."
-        ) from exc
+    _azure_import_error = exc
+
+    class AzureChatOpenAI:  # type: ignore[override]
+        """Placeholder when ``langchain-openai`` is unavailable."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
+            raise RuntimeError(
+                "Azure OpenAI chat support requires the langchain-openai package."
+            ) from _azure_import_error
 
 
 def get_chat_model(
@@ -72,23 +76,27 @@ def get_chat_model(
             reason="missing_deployment",
         )
 
-    kwargs: Dict[str, Any] = {
+    candidate_kwargs: Dict[str, Any] = {
         "azure_deployment": deployment_name,
         "deployment_name": deployment_name,
+        "model": model_name,
+        "model_name": model_name,
         "api_key": api_key,
         "openai_api_key": api_key,
+        "azure_api_key": api_key,
         "azure_endpoint": endpoint,
         "openai_api_base": endpoint,
         "base_url": endpoint,
         "max_retries": DEFAULT_MAX_RETRIES,
     }
-    apply_temperature(kwargs, temperature)
+    apply_temperature(candidate_kwargs, temperature)
 
     if azure_settings.api_version:
-        kwargs["openai_api_version"] = azure_settings.api_version
-        kwargs["api_version"] = azure_settings.api_version
+        candidate_kwargs["openai_api_version"] = azure_settings.api_version
+        candidate_kwargs["api_version"] = azure_settings.api_version
 
-    model = AzureChatOpenAI(**kwargs)
+    model_kwargs = filter_model_kwargs(AzureChatOpenAI, candidate_kwargs)
+    model = AzureChatOpenAI(**model_kwargs)
     return attach_retry(
         model,
         label=f"azure/{deployment_name}",

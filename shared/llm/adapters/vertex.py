@@ -14,18 +14,22 @@ from ._base import (
     DEFAULT_MAX_RETRIES,
     attach_retry,
     apply_temperature,
+    filter_model_kwargs,
     resolve_settings,
 )
 
-try:  # pragma: no cover - optional dependency shim
-    from langchain.chat_models import ChatVertexAI
+try:
+    from langchain_google_vertexai import ChatVertexAI
 except ImportError as exc:  # pragma: no cover
-    try:
-        from langchain_google_vertexai import ChatVertexAI  # type: ignore
-    except ImportError:  # pragma: no cover
-        raise RuntimeError(
-            "Google Vertex AI support requires the langchain-google-vertexai package."
-        ) from exc
+    _vertex_import_error = exc
+
+    class ChatVertexAI:  # type: ignore[override]
+        """Placeholder when ``langchain-google-vertexai`` is unavailable."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
+            raise RuntimeError(
+                "Google Vertex AI support requires the langchain-google-vertexai package."
+            ) from _vertex_import_error
 
 
 def _resolve_credentials_path(explicit_path: Optional[str]) -> Optional[str]:
@@ -109,18 +113,20 @@ def get_chat_model(
             reason="missing_credentials",
         )
 
-    kwargs: Dict[str, Any] = {
+    candidate_kwargs: Dict[str, Any] = {
+        "model": resolved_model_name,
         "model_name": resolved_model_name,
         "project": project_id,
         "location": location,
         "max_retries": DEFAULT_MAX_RETRIES,
     }
-    apply_temperature(kwargs, temperature)
+    apply_temperature(candidate_kwargs, temperature)
 
     if credentials_path:
-        kwargs["credentials_path"] = credentials_path
+        candidate_kwargs["credentials_path"] = credentials_path
 
-    model = ChatVertexAI(**kwargs)
+    model_kwargs = filter_model_kwargs(ChatVertexAI, candidate_kwargs)
+    model = ChatVertexAI(**model_kwargs)
     return attach_retry(
         model,
         label=f"vertex/{resolved_model_name}",
