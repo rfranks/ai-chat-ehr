@@ -80,14 +80,14 @@ def build_prompt_template(prompt: EHRPrompt) -> PromptTemplateSpec:
     except ValueError as exc:  # pragma: no cover - defensive programming
         raise InvalidPromptTemplateError(str(exc)) from exc
 
-    declared = set(prompt.input_variables or [])
-    derived = set(template.input_variables)
+    declared = tuple(prompt.input_variables or [])
+    derived = tuple(dict.fromkeys(template.input_variables))
 
-    missing_declared = declared - derived
+    missing_declared = set(declared) - set(derived)
     if missing_declared:
         raise PromptVariableMismatchError(sorted(missing_declared))
 
-    return PromptTemplateSpec(template=template, input_variables=tuple(sorted(derived)))
+    return PromptTemplateSpec(template=template, input_variables=derived)
 
 
 ContextTransformer = Callable[[EHRPatientContext | None], Any]
