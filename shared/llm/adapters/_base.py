@@ -22,7 +22,6 @@ from tenacity import (  # type: ignore[import-not-found]
     RetryCallState,
     Retrying,
     retry_if_exception,
-    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
