@@ -275,7 +275,7 @@ def _split_backend(identifier: str) -> Tuple[Optional[str], Optional[str]]:
 
 def _extract_model_override(raw_identifier: str) -> str:
     candidate = raw_identifier.strip()
-    for token in ("/", ":", "::"):
+    for token in ("::", "/", ":"):
         if token in candidate:
             candidate = candidate.split(token, 1)[1]
             break
