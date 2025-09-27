@@ -58,3 +58,19 @@ async def test_get_prompt_accepts_enum_repr() -> None:
 
     assert result is not None
     assert result.key is ChatPromptKey.PATIENT_CONTEXT
+
+
+@pytest.mark.asyncio
+async def test_prompt_identifier_skips_blank_metadata_id() -> None:
+    prompt = ChatPrompt(
+        title="Example Prompt",
+        template="Hello",
+        metadata={"id": "   "},
+    )
+    repository = PromptRepository([prompt])
+
+    empty_lookup = await repository.get_prompt("   ")
+    title_lookup = await repository.get_prompt("Example Prompt")
+
+    assert empty_lookup is None
+    assert title_lookup is prompt

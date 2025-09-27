@@ -87,11 +87,21 @@ class PromptRepository:
         """Return the canonical identifier for ``prompt`` for dictionary storage."""
 
         if prompt.key is not None:
-            return self._normalize_identifier(prompt.key)
+            identifier = self._normalize_identifier(prompt.key)
+            if identifier:
+                return identifier
+
         if prompt.metadata and "id" in prompt.metadata:
-            return self._normalize_identifier(str(prompt.metadata["id"]))
+            raw_identifier = prompt.metadata.get("id")
+            if raw_identifier is not None:
+                identifier = self._normalize_identifier(str(raw_identifier))
+                if identifier:
+                    return identifier
+
         if prompt.title:
-            return self._normalize_identifier(prompt.title)
+            identifier = self._normalize_identifier(prompt.title)
+            if identifier:
+                return identifier
         raise ValueError("Prompt requires either a key, metadata id, or title for identification")
 
     @staticmethod
