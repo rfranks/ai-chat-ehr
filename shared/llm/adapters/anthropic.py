@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from shared.config.settings import Settings
 from shared.http.errors import ProviderUnavailableError
@@ -17,12 +17,14 @@ from ._base import (
 )
 
 try:
-    from langchain_anthropic import ChatAnthropic
+    from langchain_anthropic import ChatAnthropic as _ChatAnthropic
 except ImportError as exc:  # pragma: no cover
     _anthropic_import_error = exc
 
-    class ChatAnthropic:  # type: ignore[override]
+    class _ChatAnthropicPlaceholder:
         """Placeholder when ``langchain-anthropic`` is unavailable."""
+
+        model_fields: Dict[str, Any] = {}
 
         def __init__(
             self, *args: Any, **kwargs: Any
@@ -30,6 +32,10 @@ except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "Anthropic chat support requires the langchain-anthropic package."
             ) from _anthropic_import_error
+
+    ChatAnthropicCls: Type[Any] = _ChatAnthropicPlaceholder
+else:  # pragma: no cover - executed when dependency is available
+    ChatAnthropicCls = _ChatAnthropic
 
 
 def get_chat_model(
@@ -66,8 +72,8 @@ def get_chat_model(
         candidate_kwargs["base_url"] = anthropic_settings.base_url
         candidate_kwargs["anthropic_api_url"] = anthropic_settings.base_url
 
-    model_kwargs = filter_model_kwargs(ChatAnthropic, candidate_kwargs)
-    model = ChatAnthropic(**model_kwargs)
+    model_kwargs = filter_model_kwargs(ChatAnthropicCls, candidate_kwargs)
+    model = ChatAnthropicCls(**model_kwargs)
     return attach_retry(
         model,
         label=f"anthropic/{model_name}",

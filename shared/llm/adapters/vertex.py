@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from shared.config.settings import Settings
 from shared.http.errors import ProviderUnavailableError
@@ -19,12 +19,14 @@ from ._base import (
 )
 
 try:
-    from langchain_google_vertexai import ChatVertexAI
+    from langchain_google_vertexai import ChatVertexAI as _ChatVertexAI
 except ImportError as exc:  # pragma: no cover
     _vertex_import_error = exc
 
-    class ChatVertexAI:  # type: ignore[override]
+    class _ChatVertexAIPlaceholder:
         """Placeholder when ``langchain-google-vertexai`` is unavailable."""
+
+        model_fields: Dict[str, Any] = {}
 
         def __init__(
             self, *args: Any, **kwargs: Any
@@ -32,6 +34,10 @@ except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "Google Vertex AI support requires the langchain-google-vertexai package."
             ) from _vertex_import_error
+
+    ChatVertexAICls: Type[Any] = _ChatVertexAIPlaceholder
+else:  # pragma: no cover - executed when dependency is available
+    ChatVertexAICls = _ChatVertexAI
 
 
 def _resolve_credentials_path(explicit_path: Optional[str]) -> Optional[str]:
@@ -127,8 +133,8 @@ def get_chat_model(
     if credentials_path:
         candidate_kwargs["credentials_path"] = credentials_path
 
-    model_kwargs = filter_model_kwargs(ChatVertexAI, candidate_kwargs)
-    model = ChatVertexAI(**model_kwargs)
+    model_kwargs = filter_model_kwargs(ChatVertexAICls, candidate_kwargs)
+    model = ChatVertexAICls(**model_kwargs)
     return attach_retry(
         model,
         label=f"vertex/{resolved_model_name}",

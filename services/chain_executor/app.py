@@ -8,7 +8,7 @@ import json
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, AsyncIterator, Iterable, Mapping, Sequence
+from typing import Any, AsyncIterator, Iterable, Mapping, Sequence, cast
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
@@ -69,15 +69,19 @@ register_exception_handlers(app)
 logger = get_logger(__name__)
 
 
+DEFAULT_PROMPT_CATALOG_URL = cast(AnyHttpUrl, "http://localhost:8001")
+DEFAULT_PATIENT_CONTEXT_URL = cast(AnyHttpUrl, "http://localhost:8002")
+
+
 class ChainExecutorSettings(BaseSettings):
     """Configuration for interacting with upstream services."""
 
     prompt_catalog_url: AnyHttpUrl = Field(
-        default="http://localhost:8001",
+        default=DEFAULT_PROMPT_CATALOG_URL,
         description="Base URL for the prompt catalog service",
     )
     patient_context_url: AnyHttpUrl = Field(
-        default="http://localhost:8002",
+        default=DEFAULT_PATIENT_CONTEXT_URL,
         description="Base URL for the patient context service",
     )
     http_timeout: float = Field(

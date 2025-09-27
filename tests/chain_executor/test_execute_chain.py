@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -104,13 +104,17 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch):
     audit_module.StdoutAuditRepository = _StdoutAuditRepository  # type: ignore[attr-defined]
     audit_module.get_audit_repository = get_audit_repository  # type: ignore[attr-defined]
     audit_module.record_chat_audit = record_chat_audit  # type: ignore[attr-defined]
-    audit_module.__all__ = [  # pragma: no cover - stub metadata
-        "ChatAudit",
-        "AuditRepository",
-        "StdoutAuditRepository",
-        "get_audit_repository",
-        "record_chat_audit",
-    ]
+    setattr(
+        audit_module,
+        "__all__",
+        [
+            "ChatAudit",
+            "AuditRepository",
+            "StdoutAuditRepository",
+            "get_audit_repository",
+            "record_chat_audit",
+        ],
+    )
 
     monkeypatch.setitem(sys.modules, module_name, stub)
     monkeypatch.setitem(sys.modules, "shared.observability.audit", audit_module)
@@ -239,7 +243,7 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
                 return self._text
             return self._text.format(**variables)
 
-    def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpec:
+    def fake_build_prompt_template(prompt: Any) -> Any:
         text = (getattr(prompt, "template", "") or "").strip()
         if not text:
             raise MissingPromptTemplateError(
@@ -307,7 +311,10 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     }
 
     try:
-        async with AsyncClient(app=app, base_url="http://testserver") as client:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             response = await client.post("/chains/execute", json=payload)
     finally:
         app.dependency_overrides.pop(chain_app.get_prompt_catalog_client, None)

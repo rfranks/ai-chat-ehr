@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -41,6 +41,9 @@ class ProblemDetails(BaseModel):
     )
     instance: str | None = Field(
         default=None, description="URI identifying the specific occurrence"
+    )
+    errors: list[Any] | None = Field(
+        default=None, description="Detailed validation errors when applicable"
     )
 
     model_config = ConfigDict(extra="allow")
@@ -173,9 +176,8 @@ def _normalize_detail(detail: Any) -> tuple[str | None, dict[str, Any]]:
     return str(detail), {}
 
 
-def _http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+def _http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, StarletteHTTPException)
     detail, extras = _normalize_detail(exc.detail)
     problem = ProblemDetails(
         type="about:blank",
@@ -188,24 +190,22 @@ def _http_exception_handler(
     return _problem_response(problem)
 
 
-def _validation_exception_handler(
-    request: Request, exc: RequestValidationError
-) -> JSONResponse:
+def _validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    validation_error = cast(RequestValidationError, exc)
     problem = ProblemDetails(
         type="https://chatehr.ai/problems/request-validation",
         title="Request Validation Failed",
         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail="One or more request parameters failed validation.",
         instance=str(request.url),
-        errors=exc.errors(),
+        errors=validation_error.errors(),
     )
     return _problem_response(problem)
 
 
-def _problem_exception_handler(
-    request: Request, exc: ProblemDetailsException
-) -> JSONResponse:
-    problem = exc.to_problem_details(instance=str(request.url))
+def _problem_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    problem_exception = cast(ProblemDetailsException, exc)
+    problem = problem_exception.to_problem_details(instance=str(request.url))
     return _problem_response(problem)
 
 
