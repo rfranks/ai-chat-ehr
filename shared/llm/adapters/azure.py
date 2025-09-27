@@ -21,7 +21,7 @@ try:
 except ImportError as exc:  # pragma: no cover
     _azure_import_error = exc
 
-    class AzureChatOpenAI:  # type: ignore[override]
+    class _AzureChatOpenAIPlaceholder:  # type: ignore[override]
         """Placeholder when ``langchain-openai`` is unavailable."""
 
         def __init__(
@@ -30,6 +30,8 @@ except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "Azure OpenAI chat support requires the langchain-openai package."
             ) from _azure_import_error
+
+    AzureChatOpenAI = _AzureChatOpenAIPlaceholder  # type: ignore[assignment]
 
 
 def get_chat_model(

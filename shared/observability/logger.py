@@ -9,6 +9,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Callable, Iterator
 
+from types import FrameType
+
 import structlog
 from loguru import logger as loguru_logger
 
@@ -76,7 +78,8 @@ class LoguruInterceptHandler(logging.Handler):
         except ValueError:
             level = record.levelno
 
-        frame, depth = logging.currentframe(), 2
+        frame: FrameType | None = logging.currentframe()
+        depth = 2
         while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
