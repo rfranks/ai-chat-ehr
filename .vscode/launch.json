@@ -16,7 +16,11 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "pip install (workspace)",
+            "presentation": {
+                "group": "Microservices",
+                "order": 1
+            }
         },
         {
             "name": "Prompt Catalog",
@@ -33,7 +37,11 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "pip install (workspace)",
+            "presentation": {
+                "group": "Microservices",
+                "order": 2
+            }
         },
         {
             "name": "Patient Context",
@@ -50,7 +58,11 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "pip install (workspace)",
+            "presentation": {
+                "group": "Microservices",
+                "order": 3
+            }
         },
         {
             "name": "Chain Executor",
@@ -67,7 +79,11 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "pip install (workspace)",
+            "presentation": {
+                "group": "Microservices",
+                "order": 4
+            }
         }
     ],
     "compounds": [
@@ -78,7 +94,8 @@
                 "Prompt Catalog",
                 "Patient Context",
                 "Chain Executor"
-            ]
+            ],
+            "stopAll": true
         }
     ]
 }
