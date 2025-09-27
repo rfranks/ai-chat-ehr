@@ -114,10 +114,14 @@ def stub_dependencies(monkeypatch):
         return _StopPolicy(max_attempts)
 
     class _WaitPolicy:
-        def __init__(self, **_kwargs) -> None:  # pragma: no cover - behaviour not exercised
+        def __init__(
+            self, **_kwargs
+        ) -> None:  # pragma: no cover - behaviour not exercised
             pass
 
-    def wait_exponential(**kwargs) -> _WaitPolicy:  # pragma: no cover - behaviour not exercised
+    def wait_exponential(
+        **kwargs,
+    ) -> _WaitPolicy:  # pragma: no cover - behaviour not exercised
         return _WaitPolicy(**kwargs)
 
     class _BaseAttempt:
@@ -129,7 +133,9 @@ def stub_dependencies(monkeypatch):
                 self._parent._complete = True
                 return False
             should_retry = self._parent.retry(exc)
-            if (not should_retry) or (self._parent.attempt_number >= self._parent.max_attempts):
+            if (not should_retry) or (
+                self._parent.attempt_number >= self._parent.max_attempts
+            ):
                 self._parent._complete = True
                 return False
             if self._parent.before_sleep:
@@ -158,7 +164,9 @@ def stub_dependencies(monkeypatch):
         async def __aenter__(self):  # pragma: no cover - compatibility shim
             return self
 
-        async def __aexit__(self, exc_type, exc, _tb):  # pragma: no cover - compatibility shim
+        async def __aexit__(
+            self, exc_type, exc, _tb
+        ):  # pragma: no cover - compatibility shim
             return self._handle_exit(exc_type, exc)
 
     class Retrying:
@@ -210,7 +218,9 @@ def stub_dependencies(monkeypatch):
 def test_cancelled_error_is_not_retried():
     """Ensure ``asyncio.CancelledError`` is not retried by the wrappers."""
 
-    module_path = Path(__file__).resolve().parents[3] / "shared" / "llm" / "adapters" / "_base.py"
+    module_path = (
+        Path(__file__).resolve().parents[3] / "shared" / "llm" / "adapters" / "_base.py"
+    )
     spec = importlib.util.spec_from_file_location(
         "shared.llm.adapters._base", module_path
     )

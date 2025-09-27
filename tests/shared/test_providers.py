@@ -24,13 +24,19 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None
     stub = types.ModuleType(module_name)
 
     class _DummyLogger:
-        def warning(self, *args: object, **kwargs: object) -> None:  # pragma: no cover - stub
+        def warning(
+            self, *args: object, **kwargs: object
+        ) -> None:  # pragma: no cover - stub
             return None
 
-        def bind(self, *args: object, **kwargs: object) -> "_DummyLogger":  # pragma: no cover - stub
+        def bind(
+            self, *args: object, **kwargs: object
+        ) -> "_DummyLogger":  # pragma: no cover - stub
             return self
 
-        def contextualize(self, *args: object, **kwargs: object):  # pragma: no cover - stub
+        def contextualize(
+            self, *args: object, **kwargs: object
+        ):  # pragma: no cover - stub
             @contextmanager
             def _ctx() -> Generator[None, None, None]:
                 yield None
@@ -46,7 +52,9 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None
     stub.get_request_id = lambda: None  # type: ignore[attr-defined]
 
     @contextmanager
-    def request_context(*args, **kwargs) -> Generator[str, None, None]:  # pragma: no cover - stub
+    def request_context(
+        *args, **kwargs
+    ) -> Generator[str, None, None]:  # pragma: no cover - stub
         yield "test-request-id"
 
     stub.request_context = request_context  # type: ignore[attr-defined]

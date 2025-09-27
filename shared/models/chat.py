@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # Helper utilities
 # ---------------------------------------------------------------------------
 
+
 def to_camel(value: str) -> str:
     """Convert ``snake_case`` ``value`` into ``camelCase`` for JSON aliases."""
 
@@ -35,10 +36,7 @@ def _to_snake_case(text: str) -> str:
     if not cleaned:
         return ""
     cleaned = (
-        cleaned.replace("-", " ")
-        .replace("/", " ")
-        .replace(":", " ")
-        .replace(".", " ")
+        cleaned.replace("-", " ").replace("/", " ").replace(":", " ").replace(".", " ")
     )
     tokens: list[str] = []
     for token in cleaned.split():

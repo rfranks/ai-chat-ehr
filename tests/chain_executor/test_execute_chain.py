@@ -22,19 +22,29 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch):
     stub = types.ModuleType(module_name)
 
     class _DummyLogger:
-        def bind(self, *args: object, **kwargs: object) -> "_DummyLogger":  # pragma: no cover - stub
+        def bind(
+            self, *args: object, **kwargs: object
+        ) -> "_DummyLogger":  # pragma: no cover - stub
             return self
 
-        def info(self, *args: object, **kwargs: object) -> None:  # pragma: no cover - stub
+        def info(
+            self, *args: object, **kwargs: object
+        ) -> None:  # pragma: no cover - stub
             return None
 
-        def warning(self, *args: object, **kwargs: object) -> None:  # pragma: no cover - stub
+        def warning(
+            self, *args: object, **kwargs: object
+        ) -> None:  # pragma: no cover - stub
             return None
 
-        def exception(self, *args: object, **kwargs: object) -> None:  # pragma: no cover - stub
+        def exception(
+            self, *args: object, **kwargs: object
+        ) -> None:  # pragma: no cover - stub
             return None
 
-        def contextualize(self, *args: object, **kwargs: object):  # pragma: no cover - stub
+        def contextualize(
+            self, *args: object, **kwargs: object
+        ):  # pragma: no cover - stub
             @contextmanager
             def _ctx():
                 yield None
@@ -133,7 +143,9 @@ class DummyPromptCatalogClient:
 class DummyPatientContextClient:
     """Stub patient context client that should never be invoked."""
 
-    async def get_patient_context(self, patient_id: str) -> Any:  # pragma: no cover - defensive
+    async def get_patient_context(
+        self, patient_id: str
+    ) -> Any:  # pragma: no cover - defensive
         raise AssertionError("Patient context lookup was not expected during this test")
 
 
@@ -186,7 +198,7 @@ class DummyClassifierChain:
 
     async def ainvoke(self, variables: Dict[str, Any]) -> Dict[str, Any]:
         self.calls.append(dict(variables))
-        return {self.output_key: "[\"general_reasoning\"]"}
+        return {self.output_key: '["general_reasoning"]'}
 
 
 class DummyClassifierInstance:
@@ -230,21 +242,29 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpec:
         text = (getattr(prompt, "template", "") or "").strip()
         if not text:
-            raise MissingPromptTemplateError("Prompt definition is missing template text")
+            raise MissingPromptTemplateError(
+                "Prompt definition is missing template text"
+            )
         template = DummyPromptTemplate(text)
-        return PromptTemplateSpec(template=template, input_variables=template.input_variables)
+        return PromptTemplateSpec(
+            template=template, input_variables=template.input_variables
+        )
 
     monkeypatch.setattr(chain_app, "build_prompt_template", fake_build_prompt_template)
 
     dummy_llm = DummyLLM()
-    monkeypatch.setattr(openai_adapter, "get_chat_model", lambda *args, **kwargs: dummy_llm)
+    monkeypatch.setattr(
+        openai_adapter, "get_chat_model", lambda *args, **kwargs: dummy_llm
+    )
     monkeypatch.setattr(chain_app, "LLMChain", DummyLLMChain)
     monkeypatch.setattr(chain_app, "_CATEGORY_CLASSIFICATION_CACHE", {})
 
     classifier_instances: list[DummyClassifierInstance] = []
     create_calls: list[Dict[str, Any]] = []
 
-    def fake_classifier_create(cls, llm: Any, categories: Any = None) -> DummyClassifierInstance:
+    def fake_classifier_create(
+        cls, llm: Any, categories: Any = None
+    ) -> DummyClassifierInstance:
         instance = DummyClassifierInstance()
         classifier_instances.append(instance)
         create_calls.append({"llm": llm, "categories": categories})
@@ -273,8 +293,12 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     async def _patient_client_override() -> DummyPatientContextClient:
         return patient_client
 
-    app.dependency_overrides[chain_app.get_prompt_catalog_client] = _prompt_client_override
-    app.dependency_overrides[chain_app.get_patient_context_client] = _patient_client_override
+    app.dependency_overrides[chain_app.get_prompt_catalog_client] = (
+        _prompt_client_override
+    )
+    app.dependency_overrides[chain_app.get_patient_context_client] = (
+        _patient_client_override
+    )
 
     payload = {
         "chain": [{"promptEnum": "PATIENT_SUMMARY"}],
@@ -313,7 +337,7 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     classifier = classifier_instances[0]
     assert classifier.chain.calls, "Classifier chain was not executed"
     assert "prompt_json" in classifier.chain.calls[0]
-    assert classifier.parse_calls == ["[\"general_reasoning\"]"]
+    assert classifier.parse_calls == ['["general_reasoning"]']
 
     step_metadata = body["steps"][0]["prompt"].get("metadata", {})
     assert step_metadata.get("categories") == ["general_reasoning"]

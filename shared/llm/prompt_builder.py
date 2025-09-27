@@ -40,7 +40,9 @@ class PromptVariableMismatchError(PromptBuilderError):
         missing = tuple(missing_variables)
         message = ", ".join(missing)
         super().__init__(
-            message if message else "Prompt declares variables missing from the template"
+            message
+            if message
+            else "Prompt declares variables missing from the template"
         )
         self.missing_variables: tuple[str, ...] = missing
 
@@ -145,7 +147,10 @@ def _summarize_patient(context: EHRPatientContext | None) -> str:
             descriptors.append(f"DOB {demographics.date_of_birth.isoformat()}")
         if demographics.gender:
             descriptors.append(demographics.gender)
-        if demographics.biological_sex and demographics.biological_sex != demographics.gender:
+        if (
+            demographics.biological_sex
+            and demographics.biological_sex != demographics.gender
+        ):
             descriptors.append(f"biological sex {demographics.biological_sex}")
         if demographics.pronouns:
             descriptors.append(f"pronouns {demographics.pronouns}")
@@ -240,7 +245,9 @@ def _describe_medication(medication: Medication | None) -> str | None:
         return None
 
     details = [
-        part for part in [medication.dose, medication.route, medication.frequency] if part
+        part
+        for part in [medication.dose, medication.route, medication.frequency]
+        if part
     ]
     text = medication.name
     if details:
@@ -258,7 +265,9 @@ def _describe_allergy(allergy: Allergy | None) -> str | None:
         return None
 
     text = allergy.substance
-    descriptors = [item for item in [allergy.reaction, allergy.severity, allergy.status] if item]
+    descriptors = [
+        item for item in [allergy.reaction, allergy.severity, allergy.status] if item
+    ]
     if descriptors:
         text += " (" + ", ".join(descriptors) + ")"
     return text

@@ -29,7 +29,12 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.header_name = header_name
         self.correlation_header = correlation_header or header_name
-        candidates = [self.header_name, self.correlation_header, "X-Request-ID", "X-Correlation-ID"]
+        candidates = [
+            self.header_name,
+            self.correlation_header,
+            "X-Request-ID",
+            "X-Correlation-ID",
+        ]
         if additional_headers:
             candidates.extend(additional_headers)
         # Remove duplicates while preserving order.
