@@ -12,6 +12,7 @@ from ._base import (
     DEFAULT_MAX_RETRIES,
     attach_retry,
     apply_temperature,
+    ensure_langchain_compat,
     filter_model_kwargs,
     resolve_settings,
 )
@@ -99,6 +100,7 @@ def get_chat_model(
 
     model_kwargs = filter_model_kwargs(AzureChatOpenAI, candidate_kwargs)
     model = AzureChatOpenAI(**model_kwargs)
+    model = ensure_langchain_compat(model)
     return attach_retry(
         model,
         label=f"azure/{deployment_name}",
