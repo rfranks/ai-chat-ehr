@@ -7,7 +7,7 @@ import sys
 import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterator, TypedDict
 
 from types import FrameType
 
@@ -15,7 +15,14 @@ import structlog
 from loguru import logger as loguru_logger
 
 if TYPE_CHECKING:
-    from loguru._logger import Record as LoguruRecord
+    class LoguruRecord(TypedDict, total=False):
+        """Subset of loguru record attributes accessed in formatters."""
+
+        time: Any
+        level: Any
+        message: str
+        extra: dict[str, Any]
+
 else:  # pragma: no cover - type checking helper
     LoguruRecord = dict[str, Any]
 

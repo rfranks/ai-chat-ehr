@@ -198,7 +198,7 @@ def _validation_exception_handler(request: Request, exc: Exception) -> JSONRespo
         status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail="One or more request parameters failed validation.",
         instance=str(request.url),
-        errors=validation_error.errors(),
+        errors=list(validation_error.errors()),
     )
     return _problem_response(problem)
 
