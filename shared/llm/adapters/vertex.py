@@ -23,7 +23,7 @@ try:
 except ImportError as exc:  # pragma: no cover
     _vertex_import_error = exc
 
-    class ChatVertexAI:  # type: ignore[override]
+    class _ChatVertexAIPlaceholder:  # type: ignore[override]
         """Placeholder when ``langchain-google-vertexai`` is unavailable."""
 
         def __init__(
@@ -32,6 +32,8 @@ except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "Google Vertex AI support requires the langchain-google-vertexai package."
             ) from _vertex_import_error
+
+    ChatVertexAI = _ChatVertexAIPlaceholder  # type: ignore[assignment]
 
 
 def _resolve_credentials_path(explicit_path: Optional[str]) -> Optional[str]:

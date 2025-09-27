@@ -104,13 +104,17 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch):
     audit_module.StdoutAuditRepository = _StdoutAuditRepository  # type: ignore[attr-defined]
     audit_module.get_audit_repository = get_audit_repository  # type: ignore[attr-defined]
     audit_module.record_chat_audit = record_chat_audit  # type: ignore[attr-defined]
-    audit_module.__all__ = [  # pragma: no cover - stub metadata
-        "ChatAudit",
-        "AuditRepository",
-        "StdoutAuditRepository",
-        "get_audit_repository",
-        "record_chat_audit",
-    ]
+    setattr(
+        audit_module,
+        "__all__",
+        [
+            "ChatAudit",
+            "AuditRepository",
+            "StdoutAuditRepository",
+            "get_audit_repository",
+            "record_chat_audit",
+        ],
+    )
 
     monkeypatch.setitem(sys.modules, module_name, stub)
     monkeypatch.setitem(sys.modules, "shared.observability.audit", audit_module)
@@ -239,7 +243,7 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
                 return self._text
             return self._text.format(**variables)
 
-    def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpec:
+    def fake_build_prompt_template(prompt: Any) -> Any:
         text = (getattr(prompt, "template", "") or "").strip()
         if not text:
             raise MissingPromptTemplateError(
