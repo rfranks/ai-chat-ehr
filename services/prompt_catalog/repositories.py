@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from shared.models.chat import ChatPrompt, ChatPromptKey
+from shared.models.chat import ChatPrompt, ChatPromptKey, _match_prompt_key
 
 
 class PromptRepository:
@@ -104,6 +104,10 @@ class PromptRepository:
         stripped = value.strip()
         if not stripped:
             return ""
+
+        matched_key = _match_prompt_key(stripped)
+        if matched_key is not None:
+            return matched_key.value
 
         lowered = stripped.lower()
         enum_prefix = f"{ChatPromptKey.__name__.lower()}"
