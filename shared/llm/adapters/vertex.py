@@ -14,6 +14,7 @@ from ._base import (
     DEFAULT_MAX_RETRIES,
     attach_retry,
     apply_temperature,
+    ensure_langchain_compat,
     filter_model_kwargs,
     resolve_settings,
 )
@@ -129,6 +130,7 @@ def get_chat_model(
 
     model_kwargs = filter_model_kwargs(ChatVertexAI, candidate_kwargs)
     model = ChatVertexAI(**model_kwargs)
+    model = ensure_langchain_compat(model)
     return attach_retry(
         model,
         label=f"vertex/{resolved_model_name}",

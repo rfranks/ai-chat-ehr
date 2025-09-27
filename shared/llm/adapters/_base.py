@@ -66,6 +66,24 @@ def apply_temperature(kwargs: Dict[str, Any], temperature: Optional[float]) -> N
         kwargs["temperature"] = float(temperature)
 
 
+def ensure_langchain_compat(model: BaseLanguageModel) -> BaseLanguageModel:
+    """Ensure a model exposes modern LangChain invocation methods."""
+
+    def _ensure_method(target: str, candidates: tuple[str, ...]) -> None:
+        existing = getattr(model, target, None)
+        if callable(existing):
+            return
+        for candidate_name in candidates:
+            candidate = getattr(model, candidate_name, None)
+            if callable(candidate):
+                setattr(model, target, candidate)
+                break
+
+    _ensure_method("invoke", ("__call__", "predict", "generate"))
+    _ensure_method("ainvoke", ("apredict", "agenerate"))
+    return model
+
+
 def _log_retry(label: str, method_name: str, retry_state: RetryCallState) -> None:
     exception = None
     if retry_state.outcome is not None and retry_state.outcome.failed:
@@ -184,6 +202,7 @@ __all__ = [
     "DEFAULT_MAX_RETRIES",
     "resolve_settings",
     "apply_temperature",
+    "ensure_langchain_compat",
     "attach_retry",
     "filter_model_kwargs",
 ]
