@@ -50,6 +50,9 @@ class PromptRepository:
         normalized_key = self._normalize_identifier(str(key)) if key else None
         normalized_query = query.lower().strip() if query else None
 
+        if limit <= 0:
+            return []
+
         results: list[ChatPrompt] = []
         for identifier, prompt in self._prompts.items():
             if normalized_key and identifier != normalized_key:
@@ -59,7 +62,7 @@ class PromptRepository:
                 continue
 
             results.append(prompt)
-            if 0 < limit <= len(results):
+            if len(results) >= limit:
                 break
         return results
 
