@@ -176,9 +176,7 @@ def _normalize_detail(detail: Any) -> tuple[str | None, dict[str, Any]]:
     return str(detail), {}
 
 
-def _http_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+def _http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
     detail, extras = _normalize_detail(exc.detail)
     problem = ProblemDetails(
@@ -192,9 +190,7 @@ def _http_exception_handler(
     return _problem_response(problem)
 
 
-def _validation_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+def _validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     validation_error = cast(RequestValidationError, exc)
     problem = ProblemDetails(
         type="https://chatehr.ai/problems/request-validation",
@@ -207,9 +203,7 @@ def _validation_exception_handler(
     return _problem_response(problem)
 
 
-def _problem_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+def _problem_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     problem_exception = cast(ProblemDetailsException, exc)
     problem = problem_exception.to_problem_details(instance=str(request.url))
     return _problem_response(problem)

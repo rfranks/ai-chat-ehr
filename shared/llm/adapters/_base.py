@@ -45,6 +45,7 @@ _RETRY_MARKER = "_chatehr_retry_wrapped"
 
 _cancelled_error_type = getattr(asyncio, "CancelledError", Exception)
 
+
 def _is_retryable_exception(exc: BaseException) -> bool:
     return isinstance(exc, Exception) and not isinstance(exc, _cancelled_error_type)
 
