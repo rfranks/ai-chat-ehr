@@ -29,11 +29,19 @@ _PROBLEM_FIELDS = {"type", "title", "status", "detail", "instance"}
 class ProblemDetails(BaseModel):
     """Representation of an RFC 7807 problem details payload."""
 
-    type: str = Field(default="about:blank", description="URI identifying the error type")
-    title: str = Field(default="An error occurred", description="Short human-readable summary")
+    type: str = Field(
+        default="about:blank", description="URI identifying the error type"
+    )
+    title: str = Field(
+        default="An error occurred", description="Short human-readable summary"
+    )
     status: int = Field(default=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    detail: str | None = Field(default=None, description="Detailed description of the error")
-    instance: str | None = Field(default=None, description="URI identifying the specific occurrence")
+    detail: str | None = Field(
+        default=None, description="Detailed description of the error"
+    )
+    instance: str | None = Field(
+        default=None, description="URI identifying the specific occurrence"
+    )
 
     model_config = ConfigDict(extra="allow")
 

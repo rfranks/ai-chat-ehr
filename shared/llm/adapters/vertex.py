@@ -26,7 +26,9 @@ except ImportError as exc:  # pragma: no cover
     class ChatVertexAI:  # type: ignore[override]
         """Placeholder when ``langchain-google-vertexai`` is unavailable."""
 
-        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
+        def __init__(
+            self, *args: Any, **kwargs: Any
+        ) -> None:  # pragma: no cover - stub
             raise RuntimeError(
                 "Google Vertex AI support requires the langchain-google-vertexai package."
             ) from _vertex_import_error

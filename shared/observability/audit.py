@@ -53,7 +53,9 @@ class ChatAudit:
 class AuditRepository(Protocol):
     """Abstract repository contract for persisting chat audit events."""
 
-    async def persist(self, audit: ChatAudit) -> None:  # pragma: no cover - interface definition
+    async def persist(
+        self, audit: ChatAudit
+    ) -> None:  # pragma: no cover - interface definition
         """Persist ``audit`` to the underlying storage backend."""
 
 

@@ -177,7 +177,9 @@ async def shutdown_http_clients() -> None:
     _chain_client = None
 
 
-def _filter_request_headers(raw_headers: Sequence[tuple[bytes, bytes]]) -> list[tuple[str, str]]:
+def _filter_request_headers(
+    raw_headers: Sequence[tuple[bytes, bytes]],
+) -> list[tuple[str, str]]:
     """Return headers suitable for forwarding to an upstream service."""
 
     forwarded: list[tuple[str, str]] = []
@@ -190,7 +192,9 @@ def _filter_request_headers(raw_headers: Sequence[tuple[bytes, bytes]]) -> list[
     return forwarded
 
 
-def _filter_response_headers(headers: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
+def _filter_response_headers(
+    headers: Sequence[tuple[str, str]],
+) -> list[tuple[str, str]]:
     """Remove hop-by-hop headers from the upstream response."""
 
     return [
@@ -376,7 +380,9 @@ async def proxy_prompts_root(
     return await _proxy_request(request, client, "prompt_catalog")
 
 
-@prompts_router.api_route("/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+@prompts_router.api_route(
+    "/{path:path}", methods=PROXY_METHODS, include_in_schema=False
+)
 async def proxy_prompts(
     path: str,  # noqa: ARG001 - required for routing
     request: Request,
@@ -397,7 +403,9 @@ async def proxy_patients_root(
     return await _proxy_request(request, client, "patient_context")
 
 
-@patients_router.api_route("/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+@patients_router.api_route(
+    "/{path:path}", methods=PROXY_METHODS, include_in_schema=False
+)
 async def proxy_patients(
     path: str,  # noqa: ARG001 - required for routing
     request: Request,

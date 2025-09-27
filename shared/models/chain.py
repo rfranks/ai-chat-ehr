@@ -60,7 +60,8 @@ class ChainExecutionRequest(CamelModel):
         description="Language model provider to use for execution",
     )
     model: Optional[str] = Field(
-        default=None, description="Optional model name override for the selected provider"
+        default=None,
+        description="Optional model name override for the selected provider",
     )
     temperature: Optional[float] = Field(
         default=None,
@@ -138,7 +139,9 @@ class ChainExecutionResponse(CamelModel):
     ) -> Sequence[ChainStepResult]:  # pragma: no cover - simple normalization
         if value is None:
             return []
-        if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray, str)):
+        if isinstance(value, Iterable) and not isinstance(
+            value, (bytes, bytearray, str)
+        ):
             return [ChainStepResult.model_validate(item) for item in value]
         raise TypeError("steps must be a sequence of ChainStepResult definitions")
 
@@ -191,8 +194,7 @@ def _normalize_prompt_selector(item: Any) -> PromptSelector:
             return _coerce_prompt_enum(prompt_enum)
 
         prompt_text = _extract_mapping_value(
-            item,
-            ["promptText", "prompt_text", "prompt", "text", "value", "raw"]
+            item, ["promptText", "prompt_text", "prompt", "text", "value", "raw"]
         )
         if prompt_text is not None:
             return _coerce_prompt_text(prompt_text)

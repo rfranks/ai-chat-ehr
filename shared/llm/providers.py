@@ -99,7 +99,9 @@ class LLMProvider(str, Enum):
                 has_explicit_model_override=has_override,
             )
 
-        raise ValueError(f"Unsupported LLM backend '{spec.backend}' for provider {self.value}.")
+        raise ValueError(
+            f"Unsupported LLM backend '{spec.backend}' for provider {self.value}."
+        )
 
 
 __all__ = ["LLMProvider"]

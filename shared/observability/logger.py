@@ -68,7 +68,9 @@ def generate_request_id() -> str:
 class LoguruInterceptHandler(logging.Handler):
     """Route standard logging records through Loguru while preserving context."""
 
-    def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - thin wrapper
+    def emit(
+        self, record: logging.LogRecord
+    ) -> None:  # pragma: no cover - thin wrapper
         try:
             level = loguru_logger.level(record.levelname).name
         except ValueError:
@@ -84,7 +86,9 @@ class LoguruInterceptHandler(logging.Handler):
         if request_id:
             bound = bound.bind(request_id=request_id, correlation_id=request_id)
 
-        bound.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        bound.opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
 
 
 def _configure_structlog() -> None:
@@ -106,7 +110,9 @@ def _configure_structlog() -> None:
     )
 
 
-def configure_logging(*, service_name: str | None = None, level: str | int = "INFO") -> None:
+def configure_logging(
+    *, service_name: str | None = None, level: str | int = "INFO"
+) -> None:
     """Configure loguru/structlog integration for the current process.
 
     The configuration step is idempotent and safe to call from multiple modules.
@@ -178,7 +184,9 @@ def request_context(
 
     bound_keys = list(dict.fromkeys(["request_id", *context_values.keys()]))
 
-    with loguru_logger.contextualize(request_id=rid, correlation_id=correlation, **extra):
+    with loguru_logger.contextualize(
+        request_id=rid, correlation_id=correlation, **extra
+    ):
         if bind is not None:
             bind()
         try:

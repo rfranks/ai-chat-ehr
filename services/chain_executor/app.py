@@ -31,8 +31,13 @@ from shared.llm import (
     resolve_model_spec,
     resolve_provider,
 )
+from shared.llm.providers import LLMProvider
 from shared.llm.chains.category_classifier import CategoryClassifier
-from shared.models.chain import ChainExecutionRequest, ChainExecutionResponse, ChainStepResult
+from shared.models.chain import (
+    ChainExecutionRequest,
+    ChainExecutionResponse,
+    ChainStepResult,
+)
 from shared.models.chat import (
     ChatPrompt,
     ChatPromptKey,
@@ -114,7 +119,9 @@ async def get_prompt_http_client(
 
     global _prompt_http_client
     if _prompt_http_client is None:
-        _prompt_http_client = _create_http_client(str(settings.prompt_catalog_url), settings.http_timeout)
+        _prompt_http_client = _create_http_client(
+            str(settings.prompt_catalog_url), settings.http_timeout
+        )
     return _prompt_http_client
 
 
@@ -125,7 +132,9 @@ async def get_patient_http_client(
 
     global _context_http_client
     if _context_http_client is None:
-        _context_http_client = _create_http_client(str(settings.patient_context_url), settings.http_timeout)
+        _context_http_client = _create_http_client(
+            str(settings.patient_context_url), settings.http_timeout
+        )
     return _context_http_client
 
 
@@ -561,7 +570,9 @@ def _create_llm_chain(resolved: _ResolvedPrompt, llm: Any) -> LLMChain:
     return LLMChain(llm=llm, prompt=resolved.template, output_key=resolved.output_key)
 
 
-async def _invoke_llm_chain(chain: LLMChain, variables: Mapping[str, Any]) -> Mapping[str, Any]:
+async def _invoke_llm_chain(
+    chain: LLMChain, variables: Mapping[str, Any]
+) -> Mapping[str, Any]:
     ainvoke = getattr(chain, "ainvoke", None)
     if callable(ainvoke):
         return await ainvoke(variables)
@@ -597,7 +608,9 @@ def _coalesce_text(payload: Any) -> str:
             if text:
                 return text
         return ""
-    if isinstance(payload, Iterable) and not isinstance(payload, (bytes, bytearray, str)):
+    if isinstance(payload, Iterable) and not isinstance(
+        payload, (bytes, bytearray, str)
+    ):
         parts: list[str] = []
         for item in payload:
             text = _coalesce_text(item)
@@ -684,11 +697,17 @@ async def _build_execution_context(
     patient_context: EHRPatientContext | None = None
     if payload.patient_id:
         try:
-            patient_context = await patient_client.get_patient_context(payload.patient_id)
+            patient_context = await patient_client.get_patient_context(
+                payload.patient_id
+            )
         except PatientNotFoundError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            ) from exc
         except PatientContextServiceError as exc:
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+            ) from exc
 
     variables: dict[str, Any] = {
         str(key): value for key, value in payload.variables.items()
@@ -737,7 +756,9 @@ async def _build_execution_context(
 
         resolved = _prepare_prompt(prompt, index, available_variables, used_output_keys)
         resolved_prompts.append(resolved)
-        steps.append(ChainStepResult(prompt=resolved.prompt, output_key=resolved.output_key))
+        steps.append(
+            ChainStepResult(prompt=resolved.prompt, output_key=resolved.output_key)
+        )
         available_variables.add(resolved.output_key)
 
     return _ChainExecutionContext(
@@ -752,7 +773,9 @@ async def _build_execution_context(
     )
 
 
-async def _execute_chain_buffered(context: _ChainExecutionContext) -> ChainExecutionResponse:
+async def _execute_chain_buffered(
+    context: _ChainExecutionContext,
+) -> ChainExecutionResponse:
     variables = dict(context.variables)
     outputs: dict[str, Any] = {}
 
@@ -792,7 +815,9 @@ async def _execute_chain_streaming(
         variables = dict(context.variables)
         outputs: dict[str, Any] = {}
 
-        final_resolved = context.resolved_prompts[-1] if context.resolved_prompts else None
+        final_resolved = (
+            context.resolved_prompts[-1] if context.resolved_prompts else None
+        )
         final_chain = (
             _create_llm_chain(final_resolved, context.llm)
             if final_resolved is not None
@@ -836,7 +861,9 @@ async def _execute_chain_streaming(
                 streaming_successful = False
                 if supports_streaming:
                     try:
-                        async for text_chunk in _iter_llm_stream(final_chain, variables):
+                        async for text_chunk in _iter_llm_stream(
+                            final_chain, variables
+                        ):
                             streaming_successful = True
                             final_chunks.append(text_chunk)
                             yield _format_sse_event(

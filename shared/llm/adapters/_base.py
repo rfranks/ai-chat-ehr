@@ -46,7 +46,9 @@ _cancelled_error_type = getattr(asyncio, "CancelledError", Exception)
 
 _retry_condition = retry_if_exception_type(Exception)
 try:  # pragma: no cover - asyncio always available during runtime
-    _retry_condition = _retry_condition & ~retry_if_exception_type(_cancelled_error_type)
+    _retry_condition = _retry_condition & ~retry_if_exception_type(
+        _cancelled_error_type
+    )
 except Exception:  # pragma: no cover - defensive fallback
     pass
 

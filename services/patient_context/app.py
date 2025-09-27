@@ -40,7 +40,9 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "service": SERVICE_NAME}
 
 
-@router.get("/{patient_id}", response_model=PatientRecord, status_code=status.HTTP_200_OK)
+@router.get(
+    "/{patient_id}", response_model=PatientRecord, status_code=status.HTTP_200_OK
+)
 async def read_patient_record(
     patient_id: str, repo: EMRRepository = Depends(get_repository)
 ) -> PatientRecord:

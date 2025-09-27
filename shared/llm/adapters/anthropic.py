@@ -24,7 +24,9 @@ except ImportError as exc:  # pragma: no cover
     class ChatAnthropic:  # type: ignore[override]
         """Placeholder when ``langchain-anthropic`` is unavailable."""
 
-        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
+        def __init__(
+            self, *args: Any, **kwargs: Any
+        ) -> None:  # pragma: no cover - stub
             raise RuntimeError(
                 "Anthropic chat support requires the langchain-anthropic package."
             ) from _anthropic_import_error

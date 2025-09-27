@@ -314,7 +314,9 @@ def resolve_model_spec(
                 if backend_provider is not None:
                     base_spec = _MODEL_SPECS[backend_provider]
                     override_model = _extract_model_override(raw_identifier)
-                    canonical = _canonicalize_name(base_spec.backend, override_model, base_spec.model_name)
+                    canonical = _canonicalize_name(
+                        base_spec.backend, override_model, base_spec.model_name
+                    )
                     return ModelSpec(
                         provider=backend_provider,
                         backend=base_spec.backend,
@@ -327,7 +329,9 @@ def resolve_model_spec(
         if provider_hint is not None:
             base_spec = _MODEL_SPECS[provider_hint]
             override_model = _extract_model_override(raw_identifier)
-            canonical = _canonicalize_name(base_spec.backend, override_model, base_spec.model_name)
+            canonical = _canonicalize_name(
+                base_spec.backend, override_model, base_spec.model_name
+            )
             return ModelSpec(
                 provider=provider_hint,
                 backend=base_spec.backend,
@@ -350,7 +354,9 @@ def canonical_model_name(
 ) -> str:
     """Return the canonical name for ``model_identifier``."""
 
-    return resolve_model_spec(model_identifier, provider_hint=provider_hint).canonical_name
+    return resolve_model_spec(
+        model_identifier, provider_hint=provider_hint
+    ).canonical_name
 
 
 def resolve_provider(

@@ -38,10 +38,14 @@ class _StructlogStub(types.ModuleType):
             def get_contextvars(self) -> dict[str, object]:
                 return dict(self._parent._context)
 
-            def clear_contextvars(self) -> None:  # pragma: no cover - convenience helper
+            def clear_contextvars(
+                self,
+            ) -> None:  # pragma: no cover - convenience helper
                 self._parent._context.clear()
 
-            def merge_contextvars(self, logger, method: str, event_dict: dict[str, object]):
+            def merge_contextvars(
+                self, logger, method: str, event_dict: dict[str, object]
+            ):
                 merged = dict(self._parent._context)
                 merged.update(event_dict)
                 return merged
@@ -49,7 +53,9 @@ class _StructlogStub(types.ModuleType):
         self.contextvars = _ContextVars(self)
 
         class _Processors(types.SimpleNamespace):
-            def add_log_level(self, logger, name, event_dict):  # pragma: no cover - passthrough
+            def add_log_level(
+                self, logger, name, event_dict
+            ):  # pragma: no cover - passthrough
                 return event_dict
 
             def TimeStamper(self, **kwargs):  # pragma: no cover - passthrough
@@ -58,7 +64,9 @@ class _StructlogStub(types.ModuleType):
             def StackInfoRenderer(self):  # pragma: no cover - passthrough
                 return lambda logger, name, event_dict: event_dict
 
-            def format_exc_info(self, logger, name, event_dict):  # pragma: no cover - passthrough
+            def format_exc_info(
+                self, logger, name, event_dict
+            ):  # pragma: no cover - passthrough
                 return event_dict
 
             def JSONRenderer(self):  # pragma: no cover - passthrough
@@ -87,7 +95,9 @@ class _StructlogStub(types.ModuleType):
         def configure(*_, **__):  # pragma: no cover - passthrough
             return None
 
-        def get_logger(name: str | None = None) -> _DummyBoundLogger:  # pragma: no cover
+        def get_logger(
+            name: str | None = None,
+        ) -> _DummyBoundLogger:  # pragma: no cover
             return _DummyBoundLogger()
 
         self.configure = configure

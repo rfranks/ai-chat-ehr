@@ -102,7 +102,9 @@ class PromptRepository:
             identifier = self._normalize_identifier(prompt.title)
             if identifier:
                 return identifier
-        raise ValueError("Prompt requires either a key, metadata id, or title for identification")
+        raise ValueError(
+            "Prompt requires either a key, metadata id, or title for identification"
+        )
 
     @staticmethod
     def _normalize_identifier(value: str | ChatPromptKey) -> str:
