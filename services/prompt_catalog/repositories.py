@@ -25,7 +25,7 @@ class PromptRepository:
     async def get_prompt(self, prompt_id: str | ChatPromptKey) -> ChatPrompt | None:
         """Return a prompt matching ``prompt_id`` if one exists."""
 
-        identifier = self._normalize_identifier(str(prompt_id))
+        identifier = self._normalize_identifier(prompt_id)
         return self._prompts.get(identifier)
 
     async def search_prompts(
@@ -47,7 +47,7 @@ class PromptRepository:
             Maximum number of results to return. A negative value is treated as zero.
         """
 
-        normalized_key = self._normalize_identifier(str(key)) if key else None
+        normalized_key = self._normalize_identifier(key) if key else None
         normalized_query = query.lower().strip() if query else None
 
         if limit <= 0:
@@ -86,8 +86,8 @@ class PromptRepository:
     def _identifier_for_prompt(self, prompt: ChatPrompt) -> str:
         """Return the canonical identifier for ``prompt`` for dictionary storage."""
 
-        if prompt.key:
-            return self._normalize_identifier(str(prompt.key))
+        if prompt.key is not None:
+            return self._normalize_identifier(prompt.key)
         if prompt.metadata and "id" in prompt.metadata:
             return self._normalize_identifier(str(prompt.metadata["id"]))
         if prompt.title:
@@ -95,10 +95,25 @@ class PromptRepository:
         raise ValueError("Prompt requires either a key, metadata id, or title for identification")
 
     @staticmethod
-    def _normalize_identifier(value: str) -> str:
+    def _normalize_identifier(value: str | ChatPromptKey) -> str:
         """Normalize the identifier for lookups."""
 
-        return value.strip().lower()
+        if isinstance(value, ChatPromptKey):
+            return value.value
+
+        stripped = value.strip()
+        if not stripped:
+            return ""
+
+        lowered = stripped.lower()
+        enum_prefix = f"{ChatPromptKey.__name__.lower()}"
+        for member in ChatPromptKey:
+            member_name = member.name.lower()
+            member_value = member.value.lower()
+            if lowered in {member_name, member_value, f"{enum_prefix}.{member_name}"}:
+                return member.value
+
+        return lowered
 
 
 # TODO: Replace the in-memory repository with a database-backed implementation when
