@@ -63,7 +63,11 @@ def stub_dependencies(monkeypatch):
     language_models = types.ModuleType("langchain_core.language_models")
 
     class BaseLanguageModel:  # pragma: no cover - minimal test stub
-        pass
+        def invoke(self, *_args, **_kwargs):
+            raise NotImplementedError
+
+        async def ainvoke(self, *_args, **_kwargs):
+            raise NotImplementedError
 
     language_models.BaseLanguageModel = BaseLanguageModel
     langchain_core.language_models = language_models
@@ -247,3 +251,51 @@ def test_cancelled_error_is_not_retried():
         asyncio.run(invoke_once())
 
     assert model.attempts == 1
+
+
+def test_ensure_langchain_compat_replaces_stub_invoke():
+    """Legacy models falling back to ``__call__`` gain ``invoke``."""
+
+    module_path = (
+        Path(__file__).resolve().parents[3] / "shared" / "llm" / "adapters" / "_base.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "shared.llm.adapters._base", module_path
+    )
+    assert spec and spec.loader
+    base_module = importlib.util.module_from_spec(spec)
+    sys.modules["shared.llm.adapters._base"] = base_module
+    spec.loader.exec_module(base_module)
+
+    class LegacyModel(base_module.BaseLanguageModel):
+        def __call__(self, value: str) -> str:
+            return f"legacy {value}"
+
+    model = LegacyModel()
+    patched = base_module.ensure_langchain_compat(model)
+
+    assert patched.invoke("value") == "legacy value"
+
+
+def test_ensure_langchain_compat_replaces_stub_ainvoke():
+    """Legacy async models fall back to ``apredict`` for ``ainvoke``."""
+
+    module_path = (
+        Path(__file__).resolve().parents[3] / "shared" / "llm" / "adapters" / "_base.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "shared.llm.adapters._base", module_path
+    )
+    assert spec and spec.loader
+    base_module = importlib.util.module_from_spec(spec)
+    sys.modules["shared.llm.adapters._base"] = base_module
+    spec.loader.exec_module(base_module)
+
+    class LegacyAsyncModel(base_module.BaseLanguageModel):
+        async def apredict(self, value: str) -> str:
+            return f"async {value}"
+
+    model = LegacyAsyncModel()
+    patched = base_module.ensure_langchain_compat(model)
+
+    assert asyncio.run(patched.ainvoke("value")) == "async value"

@@ -69,9 +69,29 @@ def apply_temperature(kwargs: Dict[str, Any], temperature: Optional[float]) -> N
 def ensure_langchain_compat(model: BaseLanguageModel) -> BaseLanguageModel:
     """Ensure a model exposes modern LangChain invocation methods."""
 
+    def _is_base_placeholder(method: Callable[..., Any] | None, target: str) -> bool:
+        """Return ``True`` when ``method`` is just the base-class stub."""
+
+        if method is None:
+            return False
+
+        try:
+            base_method = getattr(BaseLanguageModel, target)  # type: ignore[misc]
+        except AttributeError:
+            return False
+        except TypeError:  # pragma: no cover - ``BaseLanguageModel`` may be ``Any``
+            return False
+
+        if not callable(base_method):
+            return False
+
+        resolved_method = getattr(method, "__func__", method)
+        resolved_base = getattr(base_method, "__func__", base_method)
+        return resolved_method is resolved_base
+
     def _ensure_method(target: str, candidates: tuple[str, ...]) -> None:
         existing = getattr(model, target, None)
-        if callable(existing):
+        if callable(existing) and not _is_base_placeholder(existing, target):
             return
         for candidate_name in candidates:
             candidate = getattr(model, candidate_name, None)
