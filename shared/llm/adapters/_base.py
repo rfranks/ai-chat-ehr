@@ -21,6 +21,7 @@ from tenacity import (  # type: ignore[import-not-found]
     AsyncRetrying,
     RetryCallState,
     Retrying,
+    retry_if_exception,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
@@ -44,13 +45,11 @@ _RETRY_MARKER = "_chatehr_retry_wrapped"
 
 _cancelled_error_type = getattr(asyncio, "CancelledError", Exception)
 
-_retry_condition = retry_if_exception_type(Exception)
-try:  # pragma: no cover - asyncio always available during runtime
-    _retry_condition = _retry_condition & ~retry_if_exception_type(
-        _cancelled_error_type
-    )
-except Exception:  # pragma: no cover - defensive fallback
-    pass
+def _is_retryable_exception(exc: BaseException) -> bool:
+    return isinstance(exc, Exception) and not isinstance(exc, _cancelled_error_type)
+
+
+_retry_condition = retry_if_exception(_is_retryable_exception)
 
 
 def resolve_settings(settings: Optional[Settings]) -> Settings:

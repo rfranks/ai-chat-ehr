@@ -7,12 +7,17 @@ import sys
 import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from types import FrameType
 
 import structlog
 from loguru import logger as loguru_logger
+
+if TYPE_CHECKING:
+    from loguru._logger import Record as LoguruRecord
+else:  # pragma: no cover - type checking helper
+    LoguruRecord = dict[str, Any]
 
 __all__ = [
     "configure_logging",
@@ -27,7 +32,7 @@ _CONFIGURED: bool = False
 _SERVICE_NAME: str | None = None
 
 
-def _format_record(record: dict[str, Any]) -> str:
+def _format_record(record: "LoguruRecord") -> str:
     """Return the default loguru format string for structured log output."""
 
     timestamp = record["time"].isoformat()
@@ -74,7 +79,7 @@ class LoguruInterceptHandler(logging.Handler):
         self, record: logging.LogRecord
     ) -> None:  # pragma: no cover - thin wrapper
         try:
-            level = loguru_logger.level(record.levelname).name
+            level: str | int = loguru_logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
 

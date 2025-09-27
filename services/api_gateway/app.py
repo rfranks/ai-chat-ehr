@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from functools import lru_cache
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
@@ -56,19 +56,24 @@ _REQUEST_HEADER_EXCLUDE = _HOP_BY_HOP_HEADERS | {"host", "content-length"}
 _RESPONSE_HEADER_EXCLUDE = _HOP_BY_HOP_HEADERS | {"content-length"}
 
 
+DEFAULT_PROMPT_CATALOG_URL = cast(AnyHttpUrl, "http://localhost:8001")
+DEFAULT_PATIENT_CONTEXT_URL = cast(AnyHttpUrl, "http://localhost:8002")
+DEFAULT_CHAIN_EXECUTOR_URL = cast(AnyHttpUrl, "http://localhost:8003")
+
+
 class APIGatewaySettings(BaseSettings):
     """Configuration for proxying requests to downstream services."""
 
     prompt_catalog_url: AnyHttpUrl = Field(
-        default="http://localhost:8001",
+        default=DEFAULT_PROMPT_CATALOG_URL,
         description="Base URL for the prompt catalog service",
     )
     patient_context_url: AnyHttpUrl = Field(
-        default="http://localhost:8002",
+        default=DEFAULT_PATIENT_CONTEXT_URL,
         description="Base URL for the patient context service",
     )
     chain_executor_url: AnyHttpUrl = Field(
-        default="http://localhost:8003",
+        default=DEFAULT_CHAIN_EXECUTOR_URL,
         description="Base URL for the chain executor service",
     )
     http_timeout: float = Field(
@@ -213,7 +218,11 @@ async def _proxy_request(
 
     body = await request.body()
     headers = _filter_request_headers(request.headers.raw)
-    query_params = list(request.query_params.multi_items())
+    query_params_raw = list(request.query_params.multi_items())
+    query_params = cast(
+        list[tuple[str, str | int | float | bool | None]],
+        [(key, value) for key, value in query_params_raw],
+    )
     proxied_request = client.build_request(
         request.method,
         request.url.path,
@@ -249,7 +258,9 @@ async def _proxy_request(
             detail=f"{service_label} request failed",
         ) from exc
 
-    response_headers = _filter_response_headers(list(upstream_response.headers.items()))
+    response_headers = dict(
+        _filter_response_headers(list(upstream_response.headers.items()))
+    )
     background = BackgroundTask(upstream_response.aclose)
 
     return StreamingResponse(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from shared.config.settings import Settings
 from shared.http.errors import ProviderUnavailableError
@@ -17,12 +17,14 @@ from ._base import (
 )
 
 try:
-    from langchain_openai import ChatOpenAI
+    from langchain_openai import ChatOpenAI as _ChatOpenAI
 except ImportError as exc:  # pragma: no cover
     _openai_import_error = exc
 
-    class _ChatOpenAIPlaceholder:  # type: ignore[override]
+    class _ChatOpenAIPlaceholder:
         """Placeholder when ``langchain-openai`` is unavailable."""
+
+        model_fields: Dict[str, Any] = {}
 
         def __init__(
             self, *args: Any, **kwargs: Any
@@ -31,7 +33,9 @@ except ImportError as exc:  # pragma: no cover
                 "OpenAI chat support requires the langchain-openai package."
             ) from _openai_import_error
 
-    ChatOpenAI = _ChatOpenAIPlaceholder  # type: ignore[assignment]
+    ChatOpenAICls: Type[Any] = _ChatOpenAIPlaceholder
+else:  # pragma: no cover - executed when dependency is available
+    ChatOpenAICls = _ChatOpenAI
 
 
 def get_chat_model(
@@ -73,8 +77,8 @@ def get_chat_model(
         candidate_kwargs["base_url"] = openai_settings.base_url
         candidate_kwargs["openai_api_base"] = openai_settings.base_url
 
-    model_kwargs = filter_model_kwargs(ChatOpenAI, candidate_kwargs)
-    model = ChatOpenAI(**model_kwargs)
+    model_kwargs = filter_model_kwargs(ChatOpenAICls, candidate_kwargs)
+    model = ChatOpenAICls(**model_kwargs)
     return attach_retry(
         model,
         label=f"openai/{model_name}",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from shared.config.settings import Settings
 from shared.http.errors import ProviderUnavailableError
@@ -17,12 +17,14 @@ from ._base import (
 )
 
 try:
-    from langchain_openai import AzureChatOpenAI
+    from langchain_openai import AzureChatOpenAI as _AzureChatOpenAI
 except ImportError as exc:  # pragma: no cover
     _azure_import_error = exc
 
-    class _AzureChatOpenAIPlaceholder:  # type: ignore[override]
+    class _AzureChatOpenAIPlaceholder:
         """Placeholder when ``langchain-openai`` is unavailable."""
+
+        model_fields: Dict[str, Any] = {}
 
         def __init__(
             self, *args: Any, **kwargs: Any
@@ -31,7 +33,9 @@ except ImportError as exc:  # pragma: no cover
                 "Azure OpenAI chat support requires the langchain-openai package."
             ) from _azure_import_error
 
-    AzureChatOpenAI = _AzureChatOpenAIPlaceholder  # type: ignore[assignment]
+    AzureChatOpenAICls: Type[Any] = _AzureChatOpenAIPlaceholder
+else:  # pragma: no cover - executed when dependency is available
+    AzureChatOpenAICls = _AzureChatOpenAI
 
 
 def get_chat_model(
@@ -99,8 +103,8 @@ def get_chat_model(
         candidate_kwargs["openai_api_version"] = azure_settings.api_version
         candidate_kwargs["api_version"] = azure_settings.api_version
 
-    model_kwargs = filter_model_kwargs(AzureChatOpenAI, candidate_kwargs)
-    model = AzureChatOpenAI(**model_kwargs)
+    model_kwargs = filter_model_kwargs(AzureChatOpenAICls, candidate_kwargs)
+    model = AzureChatOpenAICls(**model_kwargs)
     return attach_retry(
         model,
         label=f"azure/{deployment_name}",
