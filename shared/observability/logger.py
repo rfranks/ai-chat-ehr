@@ -171,7 +171,10 @@ def request_context(
         context_values["service"] = _SERVICE_NAME
     correlation = context_values.setdefault("correlation_id", rid)
 
-    structlog.contextvars.bind_contextvars(request_id=rid, **context_values)
+    context_api = structlog.contextvars
+    previous_context = context_api.get_contextvars()
+
+    context_api.bind_contextvars(request_id=rid, **context_values)
 
     bound_keys = list(dict.fromkeys(["request_id", *context_values.keys()]))
 
@@ -181,5 +184,13 @@ def request_context(
         try:
             yield rid
         finally:
-            structlog.contextvars.unbind_contextvars(*bound_keys)
+            context_api.unbind_contextvars(*bound_keys)
+            if previous_context:
+                restore: dict[str, Any] = {
+                    key: previous_context[key]
+                    for key in bound_keys
+                    if key in previous_context
+                }
+                if restore:
+                    context_api.bind_contextvars(**restore)
             _REQUEST_ID.reset(token)
