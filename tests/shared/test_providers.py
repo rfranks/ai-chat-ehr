@@ -122,6 +122,20 @@ def test_resolve_model_spec_defaults_to_openai_when_provider_missing() -> None:
     assert spec.canonical_name == providers.LLMProvider.OPENAI_GPT_35_TURBO.value
 
 
+def test_resolve_model_spec_strips_double_colon_overrides() -> None:
+    providers = importlib.import_module("shared.llm.providers")
+    llmmodels = importlib.import_module("shared.llm.llmmodels")
+
+    spec = llmmodels.resolve_model_spec(
+        "azure::custom-deployment",
+        provider_hint=providers.LLMProvider.AZURE_GPT_4O,
+    )
+
+    assert spec.provider is providers.LLMProvider.AZURE_GPT_4O
+    assert spec.model_name == "custom-deployment"
+    assert spec.canonical_name == "azure/custom-deployment"
+
+
 def test_vertex_client_raises_when_env_credentials_missing(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
