@@ -10,9 +10,9 @@ from shared.http.errors import ProviderUnavailableError
 from ._base import (
     BaseLanguageModel,
     DEFAULT_MAX_RETRIES,
-    attach_retry,
+    # attach_retry,
     apply_temperature,
-    ensure_langchain_compat,
+    # ensure_langchain_compat,
     filter_model_kwargs,
     resolve_settings,
 )
@@ -74,13 +74,13 @@ def get_chat_model(
 
     model_kwargs = filter_model_kwargs(ChatOpenAI, candidate_kwargs)
     model = ChatOpenAI(**model_kwargs)
-    return model
     # model = ensure_langchain_compat(model)
-    return attach_retry(
-        model,
-        label=f"openai/{model_name}",
-        max_attempts=DEFAULT_MAX_RETRIES,
-    )
+    # return attach_retry(
+    #     model,
+    #     label=f"openai/{model_name}",
+    #     max_attempts=DEFAULT_MAX_RETRIES,
+    # )
+    return model
 
 
 __all__ = ["get_chat_model"]
