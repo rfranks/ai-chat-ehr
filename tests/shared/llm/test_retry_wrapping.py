@@ -271,7 +271,6 @@ def test_ensure_langchain_compat_replaces_stub_invoke():
         def __call__(self, value: str) -> str:
             return f"legacy {value}"
 
-
     LegacyModel.__abstractmethods__ = frozenset()
 
     model = LegacyModel()
@@ -297,7 +296,6 @@ def test_ensure_langchain_compat_replaces_stub_ainvoke():
     class LegacyAsyncModel(base_module.BaseLanguageModel):
         async def apredict(self, value: str) -> str:
             return f"async {value}"
-
 
     LegacyAsyncModel.__abstractmethods__ = frozenset()
 
