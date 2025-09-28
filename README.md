@@ -124,3 +124,20 @@ services:
 
 These examples demonstrate the canonical request payload shapes; refer to the
 OpenAPI documentation for complete request/response schemas and error details.
+
+## Patient fixtures
+
+Mock EMR data that powers the patient context service lives in
+[`repositories/fixtures/patients/`](repositories/fixtures/patients/). Each
+patient consists of two JSON documents named with the pattern
+`<patient_id>_record.json` and `<patient_id>_context.json`. To add an additional
+fixture:
+
+1. Copy the existing files as a template and update the payloads with the new
+   patient's data. Both files must contain a `demographics.patientId` field that
+   matches the identifier embedded in the filename.
+2. Run `pytest` to validate that the loader can parse the new files.
+
+The Docker images copy the entire `repositories/` directory (`COPY repositories
+./repositories`), so any JSON fixtures committed to source control are bundled
+automatically.
