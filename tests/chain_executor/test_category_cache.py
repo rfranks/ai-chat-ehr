@@ -7,7 +7,8 @@ import importlib
 import sys
 import types
 from collections import OrderedDict
-from contextlib import contextmanager
+from collections.abc import Callable, Generator
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,18 @@ def chain_app(monkeypatch: pytest.MonkeyPatch):
     """Return a freshly imported chain executor module with isolated cache state."""
 
     logger_module_name = "shared.observability.logger"
-    stub = types.ModuleType(logger_module_name)
+
+    class _LoggerModule(types.ModuleType):
+        configure_logging: Callable[..., None]
+        get_logger: Callable[..., "_DummyLogger"]
+        generate_request_id: Callable[[], str]
+        get_request_id: Callable[[], str | None]
+        request_context: Callable[..., AbstractContextManager[None]]
+
+        def __init__(self, name: str) -> None:
+            super().__init__(name)
+
+    stub = _LoggerModule(logger_module_name)
 
     class _DummyLogger:
         def bind(self, *args: object, **kwargs: object) -> "_DummyLogger":
@@ -67,7 +79,9 @@ def chain_app(monkeypatch: pytest.MonkeyPatch):
         return "stub-request-id"
 
     @contextmanager
-    def request_context(*args: Any, **kwargs: Any):  # pragma: no cover - stub
+    def request_context(
+        *args: Any, **kwargs: Any
+    ) -> Generator[None, None, None]:  # pragma: no cover - stub
         yield None
 
     stub.configure_logging = configure_logging
