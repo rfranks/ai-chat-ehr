@@ -35,6 +35,13 @@ def _format_record(record: Mapping[str, Any]) -> str:
     service = extra.get("service", "-")
     request_id = extra.get("request_id") or extra.get("correlation_id") or "-"
     message = record.get("message", "")
+    if not isinstance(message, str):
+        message = str(message)
+    # ``loguru`` expects the return value to still be processed as a
+    # ``str.format`` template. Since our structured messages frequently
+    # contain JSON payloads, escape curly braces so that the formatter does
+    # not treat them as placeholders.
+    message = message.replace("{", "{{").replace("}", "}}")
     return f"{timestamp} | {level:<8} | {service} | {request_id} | {message}\n"
 
 
