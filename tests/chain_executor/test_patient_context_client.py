@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import sys
 from pathlib import Path
 from typing import cast
@@ -11,11 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from services.chain_executor.app import (
-    PatientContextClient,
-    PatientContextServiceError,
-    PatientNotFoundError,
-)
+chain_executor_app = importlib.import_module("services.chain_executor.app")
+PatientContextClient = chain_executor_app.PatientContextClient
+PatientContextServiceError = chain_executor_app.PatientContextServiceError
+PatientNotFoundError = chain_executor_app.PatientNotFoundError
 
 
 @pytest.fixture
@@ -39,7 +39,8 @@ class _DummyHttpClient:
         self.requests: list[dict[str, object]] = []
 
     async def get(self, url: str, params: object = None) -> _DummyResponse:
-        self.requests.append({"url": url, "params": params})
+        normalized_params = _normalize_params(params)
+        self.requests.append({"url": url, "params": normalized_params})
         return _DummyResponse({})
 
 
@@ -48,7 +49,8 @@ class _NotFoundHttpClient:
         self.requests: list[dict[str, object]] = []
 
     async def get(self, url: str, params: object = None) -> _DummyResponse:
-        self.requests.append({"url": url, "params": params})
+        normalized_params = _normalize_params(params)
+        self.requests.append({"url": url, "params": normalized_params})
         request = httpx.Request("GET", f"http://patient-context{url}")
         response = httpx.Response(status_code=404, request=request)
         raise httpx.HTTPStatusError("Not found", request=request, response=response)
@@ -60,8 +62,15 @@ class _ErrorHttpClient:
         self.requests: list[dict[str, object]] = []
 
     async def get(self, url: str, params: object = None) -> _DummyResponse:
-        self.requests.append({"url": url, "params": params})
+        normalized_params = _normalize_params(params)
+        self.requests.append({"url": url, "params": normalized_params})
         raise self._exc
+
+
+def _normalize_params(params: object) -> object:
+    if isinstance(params, httpx.QueryParams):
+        return list(params.multi_items())
+    return params
 
 
 @pytest.mark.anyio("asyncio")
