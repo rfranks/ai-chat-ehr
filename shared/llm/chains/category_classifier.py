@@ -11,15 +11,17 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 
 __all__ = [
-    "PromptCategory",
+    "PromptEMRDataCategory",
     "DEFAULT_PROMPT_CATEGORIES",
     "CategoryClassifier",
 ]
 
 
 @dataclass(frozen=True)
-class PromptCategory:
-    """Metadata describing a logical category for an EHR prompt."""
+class PromptEMRDataCategory:
+    """Structured metadata for a EMR data category for a Prompt.
+    Hints to the classifier about the EMR data required to answer the question.
+    """
 
     slug: str
     name: str
@@ -37,61 +39,419 @@ class PromptCategory:
         }
 
 
-DEFAULT_PROMPT_CATEGORIES: tuple[PromptCategory, ...] = (
-    PromptCategory(
-        slug="patient_context",
-        name="Patient Context",
-        description="Summaries of the patient's clinical background, history, or context.",
-        aliases=("context", "patient_background"),
+DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
+    # — Core demographics —
+    PromptEMRDataCategory(
+        slug="patientDetail",
+        name="Patient Demographics",
+        description="""
+        Basic patient information such as age, race, ethnicity, sex assigned at birth, gender identity,
+        preferred language, social determinants of health, addresses, phone numbers, and emergency contacts.
+        Includes date of birth, date of death (if applicable), MRN(s), identifiers, and legal name variants.
+        Include first name, last name, and full name as well.
+        """,
+        aliases=("demographics", "details", "patientInfo", "identity"),
     ),
-    PromptCategory(
-        slug="clinical_assessment",
-        name="Clinical Assessment",
-        description="Reasoning about diagnoses, differential diagnoses, or assessments.",
-        aliases=("assessment", "differential", "diagnosis"),
+
+    # — Labs / tests / vitals / notes (existing, tightened) —
+    PromptEMRDataCategory(
+        slug="labs",
+        name="Lab Results",
+        description="""
+        Laboratory results only (e.g., blood/urine/other analytes). Includes panel/component structure,
+        values, units, reference ranges, abnormal flags, interpretations, collection times, and resulted times.
+        Examples: CBC, CMP, lipid panel, HbA1c, thyroid panel, urinalysis, cultures with sensitivities.
+        """,
+        aliases=("lab", "labResults", "laboratory", "labPanels"),
     ),
-    PromptCategory(
-        slug="care_plan",
-        name="Care Plan",
-        description="Constructing treatment recommendations, management plans, or next steps.",
-        aliases=("plan", "management_plan", "treatment_plan"),
+    PromptEMRDataCategory(
+        slug="testResults",
+        name="Test Results",
+        description="""
+        Diagnostic/procedural result reports outside of core labs: imaging (X-ray, CT, MRI, US),
+        echocardiograms, ECGs, pathology reports, and other procedural narratives.
+        Include key findings, impressions, measurements, and dates/times.
+        """,
+        aliases=("test", "tests", "procedure", "procedures", "imagingResults", "echo", "ecg", "pathology"),
     ),
-    PromptCategory(
-        slug="follow_up_questions",
-        name="Follow-up Questions",
-        description="Generating additional questions or clarifications for clinicians or patients.",
-        aliases=("questions", "follow_up"),
+    PromptEMRDataCategory(
+        slug="vitals",
+        name="Vitals",
+        description="""
+        Vital signs including blood pressure, heart rate, respiratory rate, temperature, SpO₂, pain score,
+        height, weight, BMI, and device/context (e.g., cuff size/position) when available, with timestamps.
+        """,
+        aliases=("vitalSigns", "vital_signs", "observations"),
     ),
-    PromptCategory(
-        slug="patient_education",
+    PromptEMRDataCategory(
+        slug="notes",
+        name="Clinical Notes",
+        description="""
+        Unstructured notes: H&P, progress notes, consults, discharge summaries, operative notes,
+        procedure notes, ED notes, and other documentation. Include author, specialty, note type, and dates.
+        """,
+        aliases=("documentation", "clinical_notes", "clinicalNotes", "narratives"),
+    ),
+
+    # — Medications & medication administrations —
+    PromptEMRDataCategory(
+        slug="medications",
+        name="Medication List",
+        description="""
+        Active and historical medications (home and inpatient): generic/brand, dose, route, frequency,
+        PRN vs scheduled, start/stop dates, indications, last reconciliation, status (active/held/stopped),
+        prescriber, dispense details. Distinct from administrations.
+        """,
+        aliases=("meds", "medList", "medication", "prescriptions", "rx"),
+    ),
+    PromptEMRDataCategory(
+        slug="medicationAdministration",
+        name="Medication Administrations (MAR)",
+        description="""
+        Medication administration record: each administration event with timestamp, dose, route, site,
+        rate (for infusions), success/partial/refused, reason, and administering clinician.
+        Useful for timing-sensitive questions (e.g., when the last antibiotic dose was given).
+        """,
+        aliases=("mar", "administrations", "medAdmin", "infusions", "drips"),
+    ),
+
+    # — Orders & orderables —
+    PromptEMRDataCategory(
+        slug="orders",
+        name="Orders",
+        description="""
+        All orderables: medication orders, lab orders, imaging orders, nursing orders (e.g., restraints, wound care),
+        diet/NPO, activity, isolation/precautions, devices, consults, therapy referrals, and care directives.
+        Include order status (active/pending/completed/canceled), priority, placer, and timestamps.
+        """,
+        aliases=("cpoe", "physicianOrders", "nursingOrders", "order", "orderSet"),
+    ),
+
+    # — Allergies / intolerances —
+    PromptEMRDataCategory(
+        slug="allergies",
+        name="Allergies & Intolerances",
+        description="""
+        Substance/drug/food/environmental allergies and intolerances with reaction(s), severity, onset,
+        status (active/inactive), and source. Include cross-reactivity and desensitization status if present.
+        """,
+        aliases=("allergy", "intolerances", "drugAllergy", "hypersensitivity"),
+    ),
+
+    # — Problem list / diagnoses —
+    PromptEMRDataCategory(
+        slug="problems",
+        name="Problem List & Diagnoses",
+        description="""
+        Active and historical problems/diagnoses with codes (ICD/SNOMED), onset/resolution dates,
+        problem status, and clinical notes/context. Useful for summarizing comorbidities and chronic issues.
+        """,
+        aliases=("diagnoses", "dx", "problemList", "conditions"),
+    ),
+
+    # — Past medical/surgical/family/social history —
+    PromptEMRDataCategory(
+        slug="pastHistory",
+        name="Past Medical & Surgical History",
+        description="""
+        Prior medical conditions and surgeries/procedures with dates, laterality, complications,
+        and brief narratives. Distinct from active problem list to capture historical context.
+        """,
+        aliases=("pmh", "psh", "history", "medicalHistory", "surgicalHistory"),
+    ),
+    PromptEMRDataCategory(
+        slug="familyHistory",
+        name="Family History",
+        description="""
+        Familial diseases and relevant genetic/inherited risks, relation, age at onset,
+        and known testing status for relatives where recorded.
+        """,
+        aliases=("fhx", "familyHx"),
+    ),
+    PromptEMRDataCategory(
+        slug="socialHistory",
+        name="Social History",
+        description="""
+        Tobacco, alcohol, and substance use; housing/food security; caregiver status; occupation;
+        sexual history; exercise; exposure risks; and other SDOH details beyond demographics.
+        """,
+        aliases=("shx", "socialHx", "sdoh", "lifestyle"),
+    ),
+
+    # — Immunizations —
+    PromptEMRDataCategory(
+        slug="immunizations",
+        name="Immunizations",
+        description="""
+        Vaccination history and due items: vaccine type, lot, manufacturer, dates, series status,
+        reactions, and titer evidence where available.
+        """,
+        aliases=("vaccines", "shots", "imms"),
+    ),
+
+    # — Encounters / admissions / locations —
+    PromptEMRDataCategory(
+        slug="encounters",
+        name="Encounters & Admissions",
+        description="""
+        Encounter timeline including ED visits, inpatient admissions, transfers, discharges, clinic visits,
+        location history (unit/bed), lengths of stay, and encounter diagnoses.
+        """,
+        aliases=("visits", "admissions", "discharges", "encounterHistory"),
+    ),
+
+    # — Care team —
+    PromptEMRDataCategory(
+        slug="careTeam",
+        name="Care Team & Providers",
+        description="""
+        Assigned and involved clinicians: PCP, attending, consultants, covering providers, nurses,
+        case managers, and their roles/contact where available.
+        """,
+        aliases=("providers", "team", "careProviders"),
+    ),
+
+    # — Procedures actually performed (separate from order or result) —
+    PromptEMRDataCategory(
+        slug="procedures",
+        name="Procedures Performed",
+        description="""
+        Procedures completed (bedside and operative): name, date/time, operator, approach,
+        devices/implants used, immediate outcome/complications, and links to related reports.
+        """,
+        aliases=("procedureHistory", "ops", "surgeries"),
+    ),
+
+    # — Lines / drains / airways —
+    PromptEMRDataCategory(
+        slug="linesDrainsAirways",
+        name="Lines, Drains, and Airways (LDA)",
+        description="""
+        Presence and status of central/peripheral lines, arterial lines, chest tubes, surgical drains,
+        urinary catheters, tracheostomies, ETTs, and insertion dates with site assessments.
+        """,
+        aliases=("lda", "lines", "drains", "airways", "catheters", "tubes"),
+    ),
+
+    # — Intake & Output —
+    PromptEMRDataCategory(
+        slug="intakeOutput",
+        name="Intake & Output",
+        description="""
+        Fluid intake and output volumes over intervals, net balance, urine output, drain outputs,
+        stool counts, emesis, dialysis ins/outs, and related timestamps.
+        """,
+        aliases=("io", "i&o", "fluidBalance"),
+    ),
+
+    # — Flowsheets & scores —
+    PromptEMRDataCategory(
+        slug="flowsheets",
+        name="Nursing Flowsheets & Scores",
+        description="""
+        Structured bedside assessments and scales: pain scores, RASS, CAM-ICU, GCS, Braden, fall risk,
+        neuro checks, pupil checks, sepsis screens, and other periodic observations.
+        """,
+        aliases=("flowsheet", "scores", "assessments", "scales"),
+    ),
+
+    # — Microbiology (often needs more detail than generic labs) —
+    PromptEMRDataCategory(
+        slug="microbiology",
+        name="Microbiology",
+        description="""""
+        Culture results with organism IDs, colony counts, Gram stains, susceptibilities/antibiograms,
+        and collection/site details (e.g., blood, urine, sputum, wound).
+        """,
+        aliases=("micro", "cultures", "sensitivities", "antibiogram"),
+    ),
+
+    # — Pathology (separate for clarity) —
+    PromptEMRDataCategory(
+        slug="pathology",
+        name="Pathology",
+        description="""
+        Surgical and cytopathology reports: specimen source, gross/microscopic descriptions,
+        diagnoses, margins, staging/grade, and ancillary studies.
+        """,
+        aliases=("path", "biopsy", "cytology", "surgicalPath"),
+    ),
+
+    # — Imaging media/links (not just reports) —
+    PromptEMRDataCategory(
+        slug="radiologyMedia",
+        name="Imaging Media/Links",
+        description="""
+        Links/references to viewable images (e.g., DICOM, PACS) and key imaging metadata
+        (accession, modality, series). Distinct from narrative imaging reports in testResults.
+        """,
+        aliases=("imaging", "dicom", "pacs", "imageLinks"),
+    ),
+
+    # — Genomics / molecular —
+    PromptEMRDataCategory(
+        slug="genomics",
+        name="Genomic & Molecular Data",
+        description="""
+        Genetic and molecular test results (e.g., tumor panels, germline testing, pharmacogenomics),
+        variants, interpretations, and clinical actionability notes.
+        """,
+        aliases=("genetics", "molecular", "pgx", "precisionMedicine"),
+    ),
+
+    # — Risk scores / calculators —
+    PromptEMRDataCategory(
+        slug="riskScores",
+        name="Clinical Scores & Calculators",
+        description="""
+        System-calculated or documented risk scores and severity indices: CHA₂DS₂-VASc, Wells,
+        SOFA/APACHE, MELD, NIHSS, ASCVD risk, and others with component inputs when available.
+        """,
+        aliases=("scores", "risk", "calculators", "severity"),
+    ),
+
+    # — Care plans / goals —
+    PromptEMRDataCategory(
+        slug="carePlans",
+        name="Care Plans, Goals & Pathways",
+        description="""
+        Interdisciplinary plan of care: goals, interventions, pathways/roadmaps, target dates,
+        progress notes, and responsible team members.
+        """,
+        aliases=("planOfCare", "poc", "goals", "carePathways"),
+    ),
+
+    # — Advance directives / code status —
+    PromptEMRDataCategory(
+        slug="advanceDirectives",
+        name="Advance Directives & Code Status",
+        description="""
+        Code status (e.g., Full, DNR/DNI), POLST/MOLST, health care proxy/surrogate information,
+        and limitations of treatment with dates and legal attestations.
+        """,
+        aliases=("codeStatus", "directives", "polst", "molst"),
+    ),
+
+    # — Nutrition / diet —
+    PromptEMRDataCategory(
+        slug="nutrition",
+        name="Nutrition & Diet Orders",
+        description="""
+        Diet orders (NPO/clear liquid/regular), tube feeds/TPN formulas and rates, nutrition assessments,
+        caloric/protein goals, swallow studies recommendations.
+        """,
+        aliases=("diet", "tpn", "tubeFeeds", "enteral", "parenteral"),
+    ),
+
+    # — Respiratory support —
+    PromptEMRDataCategory(
+        slug="respiratorySupport",
+        name="Respiratory Support",
+        description="""
+        Oxygen delivery and ventilatory support settings: device/mode (e.g., nasal cannula, HFNC, CPAP/BiPAP, invasive ventilation),
+        FiO₂, PEEP, rate, tidal volume, and recent changes with timestamps.
+        """,
+        aliases=("ventilation", "oxygen", "ventSettings", "cpap", "bipap", "hfnc"),
+    ),
+
+    # — Wounds / skin —
+    PromptEMRDataCategory(
+        slug="woundCare",
+        name="Wounds & Skin Integrity",
+        description="""
+        Wound assessments, staging, measurements, photos/diagrams (if referenced), dressings,
+        care plans, and healing trajectory. Include pressure injuries and burns.
+        """,
+        aliases=("wounds", "skin", "pressureInjury", "ulcers", "burns"),
+    ),
+
+    # — Therapies & rehabilitation —
+    PromptEMRDataCategory(
+        slug="therapies",
+        name="Therapies & Rehabilitation",
+        description="""
+        Physical/Occupational/Speech therapy consults, evaluations, treatment plans, progress notes,
+        mobility/ADL status, and recommended equipment/precautions.
+        """,
+        aliases=("pt", "ot", "slp", "rehab", "therapy"),
+    ),
+
+    # — Consults & referrals (requests + responses) —
+    PromptEMRDataCategory(
+        slug="consults",
+        name="Consults & Referrals",
+        description="""
+        Requested and completed consults (e.g., cardiology, ID) with reason for consult, urgency,
+        acceptance, timing, and consult note linkage.
+        """,
+        aliases=("referrals", "specialtyConsults", "consultRequests"),
+    ),
+
+    # — Scheduling / follow-ups —
+    PromptEMRDataCategory(
+        slug="scheduling",
+        name="Appointments & Scheduling",
+        description="""
+        Upcoming and past appointments, scheduled procedures, follow-ups, no-shows/cancellations,
+        and instructions/locations.
+        """,
+        aliases=("appointments", "schedule", "followUp", "bookings"),
+    ),
+
+    # — Insurance / billing (often needed for disposition/questions) —
+    PromptEMRDataCategory(
+        slug="insurance",
+        name="Insurance & Coverage",
+        description="""
+        Payer/plan details, coverage periods, authorizations, copays/deductibles, and financial counseling notes
+        relevant to care planning and discharge.
+        """,
+        aliases=("coverage", "payer", "benefits", "guarantor"),
+    ),
+    PromptEMRDataCategory(
+        slug="billing",
+        name="Billing & Coding",
+        description="""
+        Charge capture, CPT/HCPCS/ICD codes, DRGs, and claims status where available for clinical/operational questions.
+        """,
+        aliases=("coding", "charges", "claims", "revenueCycle"),
+    ),
+
+    # — Communication / consents / education —
+    PromptEMRDataCategory(
+        slug="communications",
+        name="Patient Communications & Messages",
+        description="""
+        Secure messages/portal threads, documented phone calls, and other communication logs
+        that may impact clinical decisions (e.g., symptom updates, instructions given).
+        """,
+        aliases=("messages", "portal", "inbox", "callLogs"),
+    ),
+    PromptEMRDataCategory(
+        slug="consents",
+        name="Consents & Authorizations",
+        description="""
+        Documented informed consents and authorizations covering procedures, blood products,
+        anesthesia, data sharing, and research participation.
+        """,
+        aliases=("consent", "authorizations", "permissions"),
+    ),
+    PromptEMRDataCategory(
+        slug="patientEducation",
         name="Patient Education",
-        description="Explaining conditions, plans, or instructions in patient-friendly language.",
-        aliases=("education", "patient_guidance"),
-    ),
-    PromptCategory(
-        slug="safety",
-        name="Safety Checks",
-        description="Identifying red flags, safety issues, or risk mitigations.",
-        aliases=("safety_checks", "risk"),
-    ),
-    PromptCategory(
-        slug="triage",
-        name="Triage",
-        description="Assessing acuity or determining the urgency of clinical scenarios.",
-        aliases=("triage_assessment", "triage_check"),
-    ),
-    PromptCategory(
-        slug="general_reasoning",
-        name="General Reasoning",
-        description="Prompts that span multiple workflows or do not neatly fit other categories.",
-        aliases=("general", "misc", "other"),
+        description="""
+        Education materials provided, teach-back documentation, learning barriers, and readiness,
+        including language and interpreter use.
+        """,
+        aliases=("education", "teaching", "educationNotes"),
     ),
 )
 
 _CLASSIFIER_TEMPLATE = """
 You are an expert curator for an electronic health record (EHR) prompt library.
 
-Select every category slug from the allowed list that applies to the prompt.
+Select every category slug from the allowed list that indicates data from the EMR 
+that would be required to answer or satisfy the prompt.
 Use only the slugs listed below and respond with a JSON array of slugs. If none apply,
 respond with an empty array ``[]``. Do not invent new categories.
 
@@ -128,7 +488,7 @@ def _deduplicate_preserve_order(values: Iterable[str]) -> list[str]:
     return ordered
 
 
-def _build_alias_map(categories: Sequence[PromptCategory]) -> dict[str, str]:
+def _build_alias_map(categories: Sequence[PromptEMRDataCategory]) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for category in categories:
         for candidate in (category.slug, category.name, *category.aliases):
@@ -139,7 +499,7 @@ def _build_alias_map(categories: Sequence[PromptCategory]) -> dict[str, str]:
     return mapping
 
 
-def _render_category_overview(categories: Sequence[PromptCategory]) -> str:
+def _render_category_overview(categories: Sequence[PromptEMRDataCategory]) -> str:
     lines: list[str] = []
     for category in categories:
         alias_text = ""
@@ -151,7 +511,7 @@ def _render_category_overview(categories: Sequence[PromptCategory]) -> str:
     return "\n".join(lines)
 
 
-def _render_category_json(categories: Sequence[PromptCategory]) -> str:
+def _render_category_json(categories: Sequence[PromptEMRDataCategory]) -> str:
     payload = [category.as_dict() for category in categories]
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -197,14 +557,16 @@ def _iter_possible_values(payload: Any) -> Iterable[str]:
 class CategoryClassifier:
     """Wrapper around a :class:`LLMChain` for prompt categorisation."""
 
-    def __init__(self, chain: LLMChain, categories: Sequence[PromptCategory]) -> None:
+    def __init__(
+        self, chain: LLMChain, categories: Sequence[PromptEMRDataCategory]
+    ) -> None:
         self._chain = chain
         self._categories = tuple(categories)
         self._alias_map = _build_alias_map(self._categories)
 
     @classmethod
     def create(
-        cls, llm: Any, categories: Sequence[PromptCategory] | None = None
+        cls, llm: Any, categories: Sequence[PromptEMRDataCategory] | None = None
     ) -> "CategoryClassifier":
         """Create a classifier bound to ``llm`` and the provided ``categories``."""
 
@@ -223,7 +585,7 @@ class CategoryClassifier:
         return self._chain
 
     @property
-    def categories(self) -> tuple[PromptCategory, ...]:
+    def categories(self) -> tuple[PromptEMRDataCategory, ...]:
         """Return the known categories used by the classifier."""
 
         return self._categories

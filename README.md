@@ -79,7 +79,7 @@ services:
   ```
 * Retrieve patient context for the bundled sample patient (`patient_id=123456`):
   ```bash
-  curl "http://localhost:8002/patients/context?patient_id=123456" | jq
+  curl "http://localhost:8002/patients/123456/context" | jq
   ```
 * Execute a two-step chain that pulls patient context and drafts a clinical plan:
   ```bash
