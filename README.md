@@ -77,6 +77,11 @@ services:
   ```bash
   curl http://localhost:8001/prompts | jq
   ```
+* Discover the canonical prompt categories exposed by the catalog service:
+  ```bash
+  curl http://localhost:8001/categories | jq
+  ```
+  Each category includes a ``slug``, ``name``, ``description``, and recognised ``aliases``.
 * Retrieve patient context for the bundled sample patient (`patient_id=123456`):
   ```bash
   curl "http://localhost:8002/patients/123456/context" | jq

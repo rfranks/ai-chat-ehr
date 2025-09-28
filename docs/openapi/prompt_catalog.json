@@ -142,6 +142,38 @@
         "title": "PromptResponse",
         "type": "object"
       },
+      "PromptCategory": {
+        "description": "Serializable representation of a prompt EMR data category.",
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "aliases"
+        ],
+        "title": "PromptCategory",
+        "type": "object"
+      },
       "PromptSearchRequest": {
         "description": "Search criteria for locating prompts.",
         "properties": {
@@ -235,6 +267,32 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/categories": {
+      "get": {
+        "description": "Return the canonical prompt categories available for classification.",
+        "operationId": "list_categories_categories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PromptCategory"
+                  },
+                  "title": "Response Categories",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Categories",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Return a simple health payload for orchestration checks.",

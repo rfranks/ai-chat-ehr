@@ -12,6 +12,7 @@ from shared.observability.middleware import (
     CorrelationIdMiddleware,
     RequestTimingMiddleware,
 )
+from shared.llm.chains import DEFAULT_PROMPT_CATEGORIES, PromptEMRDataCategory
 
 from .repositories import PromptRepository, get_prompt_repository
 
@@ -35,6 +36,23 @@ class PromptResponse(BaseModel):
     """Response payload containing a single prompt."""
 
     prompt: ChatPrompt
+
+
+class PromptCategory(BaseModel):
+    """Serializable representation of a prompt EMR data category."""
+
+    slug: str
+    name: str
+    description: str
+    aliases: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_dataclass(
+        cls, category: PromptEMRDataCategory
+    ) -> "PromptCategory":
+        """Create a ``PromptCategory`` from ``PromptEMRDataCategory`` metadata."""
+
+        return cls(**category.as_dict())
 
 
 class PromptSearchRequest(BaseModel):
@@ -104,6 +122,20 @@ async def search_prompts(
         limit=payload.limit,
     )
     return PromptSearchResponse(results=results)
+
+
+@app.get(
+    "/categories",
+    response_model=list[PromptCategory],
+    tags=["categories"],
+)
+async def list_categories() -> list[PromptCategory]:
+    """Return the canonical prompt categories available for classification."""
+
+    return [
+        PromptCategory.from_dataclass(category)
+        for category in DEFAULT_PROMPT_CATEGORIES
+    ]
 
 
 def get_app() -> FastAPI:
