@@ -8,7 +8,7 @@ import json
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, AsyncIterator, Iterable, Mapping, Sequence
+from typing import Any, AsyncIterator, Iterable, Mapping, Sequence, cast
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
@@ -74,11 +74,11 @@ class ChainExecutorSettings(BaseSettings):
     """Configuration for interacting with upstream services."""
 
     prompt_catalog_url: AnyHttpUrl = Field(
-        default="http://localhost:8001",
+        default=cast(AnyHttpUrl, "http://localhost:8001"),
         description="Base URL for the prompt catalog service",
     )
     patient_context_url: AnyHttpUrl = Field(
-        default="http://localhost:8002",
+        default=cast(AnyHttpUrl, "http://localhost:8002"),
         description="Base URL for the patient context service",
     )
     http_timeout: float = Field(

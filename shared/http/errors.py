@@ -173,9 +173,9 @@ def _normalize_detail(detail: Any) -> tuple[str | None, dict[str, Any]]:
     return str(detail), {}
 
 
-def _http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+def _http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, StarletteHTTPException):
+        return _unhandled_exception_handler(request, exc)
     detail, extras = _normalize_detail(exc.detail)
     problem = ProblemDetails(
         type="about:blank",
@@ -188,23 +188,25 @@ def _http_exception_handler(
     return _problem_response(problem)
 
 
-def _validation_exception_handler(
-    request: Request, exc: RequestValidationError
-) -> JSONResponse:
-    problem = ProblemDetails(
-        type="https://chatehr.ai/problems/request-validation",
-        title="Request Validation Failed",
-        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="One or more request parameters failed validation.",
-        instance=str(request.url),
-        errors=exc.errors(),
+def _validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, RequestValidationError):
+        return _unhandled_exception_handler(request, exc)
+    problem = ProblemDetails.model_validate(
+        {
+            "type": "https://chatehr.ai/problems/request-validation",
+            "title": "Request Validation Failed",
+            "status": status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "detail": "One or more request parameters failed validation.",
+            "instance": str(request.url),
+            "errors": exc.errors(),
+        }
     )
     return _problem_response(problem)
 
 
-def _problem_exception_handler(
-    request: Request, exc: ProblemDetailsException
-) -> JSONResponse:
+def _problem_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, ProblemDetailsException):
+        return _unhandled_exception_handler(request, exc)
     problem = exc.to_problem_details(instance=str(request.url))
     return _problem_response(problem)
 

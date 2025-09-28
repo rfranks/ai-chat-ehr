@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from shared.config.settings import Settings
 from shared.http.errors import ProviderUnavailableError
@@ -18,11 +18,13 @@ from ._base import (
 )
 
 try:
-    from langchain_anthropic import ChatAnthropic
+    from langchain_anthropic import ChatAnthropic as _ImportedChatAnthropic
+
+    _anthropic_import_error: Exception | None = None
 except ImportError as exc:  # pragma: no cover
     _anthropic_import_error = exc
 
-    class ChatAnthropic:  # type: ignore[override]
+    class _FallbackChatAnthropic:
         """Placeholder when ``langchain-anthropic`` is unavailable."""
 
         def __init__(
@@ -31,6 +33,13 @@ except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "Anthropic chat support requires the langchain-anthropic package."
             ) from _anthropic_import_error
+
+    ChatAnthropicRuntime = cast(type[BaseLanguageModel], _FallbackChatAnthropic)
+else:
+    ChatAnthropicRuntime = _ImportedChatAnthropic
+
+
+ChatAnthropic = ChatAnthropicRuntime
 
 
 def get_chat_model(
@@ -68,7 +77,7 @@ def get_chat_model(
         candidate_kwargs["anthropic_api_url"] = anthropic_settings.base_url
 
     model_kwargs = filter_model_kwargs(ChatAnthropic, candidate_kwargs)
-    model = ChatAnthropic(**model_kwargs)
+    model = cast(BaseLanguageModel, ChatAnthropic(**model_kwargs))
     model = ensure_langchain_compat(model)
     return attach_retry(
         model,

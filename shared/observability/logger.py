@@ -7,7 +7,8 @@ import sys
 import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, Mapping
+from types import FrameType
 
 import structlog
 from loguru import logger as loguru_logger
@@ -25,7 +26,7 @@ _CONFIGURED: bool = False
 _SERVICE_NAME: str | None = None
 
 
-def _format_record(record: dict[str, Any]) -> str:
+def _format_record(record: Mapping[str, Any]) -> str:
     """Return the default loguru format string for structured log output."""
 
     timestamp = record["time"].isoformat()
@@ -71,12 +72,14 @@ class LoguruInterceptHandler(logging.Handler):
     def emit(
         self, record: logging.LogRecord
     ) -> None:  # pragma: no cover - thin wrapper
+        level: str | int
         try:
             level = loguru_logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
 
-        frame, depth = logging.currentframe(), 2
+        frame: FrameType | None = logging.currentframe()
+        depth = 2
         while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1

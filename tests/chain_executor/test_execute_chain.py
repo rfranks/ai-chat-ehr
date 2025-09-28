@@ -4,7 +4,12 @@ import sys
 import types
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from shared.llm.prompt_builder import PromptTemplateSpec as PromptTemplateSpecType
+else:
+    PromptTemplateSpecType = Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -54,16 +59,16 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch):
     def get_logger(name: str | None = None) -> _DummyLogger:  # pragma: no cover - stub
         return _DummyLogger()
 
-    stub.get_logger = get_logger  # type: ignore[attr-defined]
-    stub.configure_logging = lambda *args, **kwargs: None  # type: ignore[attr-defined]
-    stub.generate_request_id = lambda: "test-request-id"  # type: ignore[attr-defined]
-    stub.get_request_id = lambda: "test-request-id"  # type: ignore[attr-defined]
+    setattr(stub, "get_logger", get_logger)
+    setattr(stub, "configure_logging", lambda *args, **kwargs: None)
+    setattr(stub, "generate_request_id", lambda: "test-request-id")
+    setattr(stub, "get_request_id", lambda: "test-request-id")
 
     @contextmanager
     def request_context(*args: object, **kwargs: object):  # pragma: no cover - stub
         yield "test-request-id"
 
-    stub.request_context = request_context  # type: ignore[attr-defined]
+    setattr(stub, "request_context", request_context)
 
     audit_module = types.ModuleType("shared.observability.audit")
 
@@ -99,18 +104,22 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch):
         await repo.persist(audit)
         return audit
 
-    audit_module.ChatAudit = _ChatAudit  # type: ignore[attr-defined]
-    audit_module.AuditRepository = _AuditRepository  # type: ignore[attr-defined]
-    audit_module.StdoutAuditRepository = _StdoutAuditRepository  # type: ignore[attr-defined]
-    audit_module.get_audit_repository = get_audit_repository  # type: ignore[attr-defined]
-    audit_module.record_chat_audit = record_chat_audit  # type: ignore[attr-defined]
-    audit_module.__all__ = [  # pragma: no cover - stub metadata
-        "ChatAudit",
-        "AuditRepository",
-        "StdoutAuditRepository",
-        "get_audit_repository",
-        "record_chat_audit",
-    ]
+    setattr(audit_module, "ChatAudit", _ChatAudit)
+    setattr(audit_module, "AuditRepository", _AuditRepository)
+    setattr(audit_module, "StdoutAuditRepository", _StdoutAuditRepository)
+    setattr(audit_module, "get_audit_repository", get_audit_repository)
+    setattr(audit_module, "record_chat_audit", record_chat_audit)
+    setattr(
+        audit_module,
+        "__all__",
+        [
+            "ChatAudit",
+            "AuditRepository",
+            "StdoutAuditRepository",
+            "get_audit_repository",
+            "record_chat_audit",
+        ],
+    )
 
     monkeypatch.setitem(sys.modules, module_name, stub)
     monkeypatch.setitem(sys.modules, "shared.observability.audit", audit_module)
@@ -224,7 +233,7 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
 
     ChatPrompt = chat_models.ChatPrompt
     ChatPromptKey = chat_models.ChatPromptKey
-    PromptTemplateSpec = prompt_builder.PromptTemplateSpec
+    PromptTemplateSpecCls = prompt_builder.PromptTemplateSpec
     MissingPromptTemplateError = prompt_builder.MissingPromptTemplateError
 
     class DummyPromptTemplate:
@@ -239,14 +248,16 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
                 return self._text
             return self._text.format(**variables)
 
-    def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpec:
+    def fake_build_prompt_template(
+        prompt: Any,
+    ) -> PromptTemplateSpecType:
         text = (getattr(prompt, "template", "") or "").strip()
         if not text:
             raise MissingPromptTemplateError(
                 "Prompt definition is missing template text"
             )
         template = DummyPromptTemplate(text)
-        return PromptTemplateSpec(
+        return PromptTemplateSpecCls(
             template=template, input_variables=template.input_variables
         )
 
@@ -368,7 +379,7 @@ async def test_execute_chain_classifies_model_when_missing_metadata(
     anthropic_adapter = importlib.import_module("shared.llm.adapters.anthropic")
 
     ChatPrompt = chat_models.ChatPrompt
-    PromptTemplateSpec = prompt_builder.PromptTemplateSpec
+    PromptTemplateSpecCls = prompt_builder.PromptTemplateSpec
     MissingPromptTemplateError = prompt_builder.MissingPromptTemplateError
 
     class DummyPromptTemplate:
@@ -382,14 +393,14 @@ async def test_execute_chain_classifies_model_when_missing_metadata(
                 return self._text
             return self._text.format(**variables)
 
-    def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpec:
+    def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpecType:
         text = (getattr(prompt, "template", "") or "").strip()
         if not text:
             raise MissingPromptTemplateError(
                 "Prompt definition is missing template text"
             )
         template = DummyPromptTemplate(text)
-        return PromptTemplateSpec(
+        return PromptTemplateSpecCls(
             template=template, input_variables=template.input_variables
         )
 

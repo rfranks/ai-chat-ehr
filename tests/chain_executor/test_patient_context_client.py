@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from typing import cast
+
+import httpx
 import pytest
 
 from services.chain_executor.app import PatientContextClient
@@ -33,7 +36,8 @@ class _DummyHttpClient:
 @pytest.mark.anyio("asyncio")
 async def test_patient_context_client_strips_patient_identifier_whitespace() -> None:
     http_client = _DummyHttpClient()
-    client = PatientContextClient(http_client)
+    typed_client = cast(httpx.AsyncClient, http_client)
+    client = PatientContextClient(typed_client)
 
     await client.get_patient_context("  patient-123  ")
 
