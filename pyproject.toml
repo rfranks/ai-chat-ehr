@@ -45,3 +45,6 @@ dependencies = [
 Homepage = "https://github.com/"
 Source = "https://github.com/"
 Issues = "https://github.com/"
+
+[tool.mypy]
+exclude = "(^|/)build/"

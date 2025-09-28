@@ -422,4 +422,3 @@ class ModelClassifier:
 
 # Export DEFAULT_MODEL_PROVIDER for external modules relying on this namespace.
 DEFAULT_MODEL_PROVIDER  # pragma: no cover - re-export sentinel usage
-

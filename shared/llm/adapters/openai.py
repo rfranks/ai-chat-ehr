@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from shared.config.settings import Settings
 from shared.http.errors import ProviderUnavailableError
@@ -18,11 +18,13 @@ from ._base import (
 )
 
 try:
-    from langchain_openai import ChatOpenAI
+    from langchain_openai import ChatOpenAI as _ImportedChatOpenAI
+
+    _openai_import_error: Exception | None = None
 except ImportError as exc:  # pragma: no cover
     _openai_import_error = exc
 
-    class ChatOpenAI:  # type: ignore[override]
+    class _FallbackChatOpenAI:
         """Placeholder when ``langchain-openai`` is unavailable."""
 
         def __init__(
@@ -31,6 +33,13 @@ except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "OpenAI chat support requires the langchain-openai package."
             ) from _openai_import_error
+
+    ChatOpenAIRuntime = cast(type[BaseLanguageModel], _FallbackChatOpenAI)
+else:
+    ChatOpenAIRuntime = _ImportedChatOpenAI
+
+
+ChatOpenAI = ChatOpenAIRuntime
 
 
 def get_chat_model(
@@ -73,7 +82,7 @@ def get_chat_model(
         candidate_kwargs["openai_api_base"] = openai_settings.base_url
 
     model_kwargs = filter_model_kwargs(ChatOpenAI, candidate_kwargs)
-    model = ChatOpenAI(**model_kwargs)
+    model = cast(BaseLanguageModel, ChatOpenAI(**model_kwargs))
     # model = ensure_langchain_compat(model)
     # return attach_retry(
     #     model,

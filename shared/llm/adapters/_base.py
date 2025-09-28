@@ -38,13 +38,31 @@ _RETRY_MARKER = "_chatehr_retry_wrapped"
 
 _cancelled_error_type = getattr(asyncio, "CancelledError", Exception)
 
-_retry_condition = retry_if_exception_type(Exception)
-try:  # pragma: no cover - asyncio always available during runtime
-    _retry_condition = _retry_condition & ~retry_if_exception_type(
-        _cancelled_error_type
-    )
-except Exception:  # pragma: no cover - defensive fallback
-    pass
+
+_base_retry_condition = retry_if_exception_type(Exception)
+
+
+class _RetryExcludingCancelled:
+    """Retry predicate that skips asyncio cancellation errors."""
+
+    def __call__(
+        self, retry_state: RetryCallState | BaseException
+    ) -> bool:  # pragma: no cover - thin wrapper
+        if isinstance(retry_state, BaseException):
+            if isinstance(retry_state, _cancelled_error_type):
+                return False
+            return isinstance(retry_state, Exception)
+
+        outcome = retry_state.outcome
+        if outcome is None or not outcome.failed:
+            return False
+        exception = outcome.exception()
+        if isinstance(exception, _cancelled_error_type):
+            return False
+        return _base_retry_condition(retry_state)
+
+
+_retry_condition: Any = _RetryExcludingCancelled()
 
 
 def resolve_settings(settings: Optional[Settings]) -> Settings:

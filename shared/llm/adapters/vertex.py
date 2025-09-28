@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from shared.config.settings import Settings
 from shared.http.errors import ProviderUnavailableError
@@ -20,11 +20,13 @@ from ._base import (
 )
 
 try:
-    from langchain_google_vertexai import ChatVertexAI
+    from langchain_google_vertexai import ChatVertexAI as _ImportedChatVertexAI
+
+    _vertex_import_error: Exception | None = None
 except ImportError as exc:  # pragma: no cover
     _vertex_import_error = exc
 
-    class ChatVertexAI:  # type: ignore[override]
+    class _FallbackChatVertexAI:
         """Placeholder when ``langchain-google-vertexai`` is unavailable."""
 
         def __init__(
@@ -33,6 +35,13 @@ except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "Google Vertex AI support requires the langchain-google-vertexai package."
             ) from _vertex_import_error
+
+    ChatVertexAIRuntime = cast(type[BaseLanguageModel], _FallbackChatVertexAI)
+else:
+    ChatVertexAIRuntime = _ImportedChatVertexAI
+
+
+ChatVertexAI = ChatVertexAIRuntime
 
 
 def _resolve_credentials_path(explicit_path: Optional[str]) -> Optional[str]:
@@ -129,7 +138,7 @@ def get_chat_model(
         candidate_kwargs["credentials_path"] = credentials_path
 
     model_kwargs = filter_model_kwargs(ChatVertexAI, candidate_kwargs)
-    model = ChatVertexAI(**model_kwargs)
+    model = cast(BaseLanguageModel, ChatVertexAI(**model_kwargs))
     model = ensure_langchain_compat(model)
     return attach_retry(
         model,
