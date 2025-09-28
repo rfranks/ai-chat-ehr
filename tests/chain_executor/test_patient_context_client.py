@@ -70,9 +70,7 @@ async def test_patient_context_client_strips_patient_identifier_whitespace() -> 
     typed_client = cast(httpx.AsyncClient, http_client)
     client = PatientContextClient(typed_client)
 
-    await client.get_patient_context(
-        "  patient-123  ", categories=["labs", "notes"]
-    )
+    await client.get_patient_context("  patient-123  ", categories=["labs", "notes"])
 
     assert http_client.requests == [
         {
