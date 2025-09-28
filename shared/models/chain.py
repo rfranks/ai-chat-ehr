@@ -105,7 +105,10 @@ class ChainExecutionResponse(CamelModel):
     )
     inputs: dict[str, Any] = Field(
         default_factory=dict,
-        description="Initial variables supplied for the execution",
+        description=(
+            "Final variable map after chain execution, including the initial "
+            "inputs and any context or values derived during processing"
+        ),
     )
     final_output_key: Optional[str] = Field(
         default=None, description="Identifier for the final step in the chain"
