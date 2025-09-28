@@ -2,6 +2,7 @@ import importlib
 import re
 import sys
 import types
+from collections import OrderedDict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Sequence, TYPE_CHECKING
@@ -282,7 +283,7 @@ async def _execute_chain_request(
         openai_adapter, "get_chat_model", lambda *args, **kwargs: dummy_llm
     )
     monkeypatch.setattr(chain_app, "LLMChain", DummyLLMChain)
-    monkeypatch.setattr(chain_app, "_CATEGORY_CLASSIFICATION_CACHE", {})
+    monkeypatch.setattr(chain_app, "_CATEGORY_CLASSIFICATION_CACHE", OrderedDict())
 
     classifier_instances: list[DummyClassifierInstance] = []
     create_calls: list[Dict[str, Any]] = []
@@ -643,7 +644,7 @@ async def test_execute_chain_classifies_model_when_missing_metadata(
         anthropic_adapter, "get_chat_model", lambda *args, **kwargs: dummy_llm
     )
     monkeypatch.setattr(chain_app, "LLMChain", DummyLLMChain)
-    monkeypatch.setattr(chain_app, "_CATEGORY_CLASSIFICATION_CACHE", {})
+    monkeypatch.setattr(chain_app, "_CATEGORY_CLASSIFICATION_CACHE", OrderedDict())
 
     classifier_instances: list[DummyClassifierInstance] = []
 
