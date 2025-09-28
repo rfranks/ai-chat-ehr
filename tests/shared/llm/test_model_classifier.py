@@ -39,6 +39,5 @@ def test_classifier_prompt_injects_prompt_json() -> None:
     payload = {"example": "value"}
     rendered = classifier.chain.prompt.format(prompt_json=json.dumps(payload))
 
-    assert "\"example\": \"value\"" in rendered
+    assert '"example": "value"' in rendered
     assert "{prompt_json}" not in rendered
-
