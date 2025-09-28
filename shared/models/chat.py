@@ -104,6 +104,10 @@ class ChatPrompt(CamelModel):
     description: Optional[str] = Field(
         default=None, description="Detailed explanation of the prompt's purpose"
     )
+    categories: Optional[list[str]] = Field(
+        default_factory=list,
+        description="The categories of data rquired to answer or fullfil the prompt",
+    )
     template: Optional[str] = Field(
         default=None,
         description="Prompt template text that may contain replacement variables",
@@ -121,6 +125,9 @@ class ChatPrompt(CamelModel):
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="Arbitrary metadata for the prompt"
+    )
+    model: Optional[str] = Field(
+        default=None, description="The model best suited to answer this prompt"
     )
 
     @field_validator("chain", mode="before")
