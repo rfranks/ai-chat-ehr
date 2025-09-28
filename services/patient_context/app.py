@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, status
 
 from repositories.emr import EMRRepository
-from services.patient_context.mappers import map_patient_context, map_patient_record
+from services.patient_context.mappers import (
+    filter_context_by_categories,
+    map_patient_context,
+    map_patient_record,
+)
 from shared.models import EHRPatientContext, PatientRecord
 from shared.observability.logger import configure_logging
 from shared.observability.middleware import (
@@ -47,6 +51,12 @@ async def health() -> dict[str, str]:
 )
 async def read_patient_context(
     patient_id: str = Path(..., description="Unique identifier for the patient"),
+    categories: list[str] = Query(
+        default_factory=list,
+        description=(
+            "Optional list of category slugs used to filter the patient context payload"
+        ),
+    ),
     repo: EMRRepository = Depends(get_repository),
 ) -> EHRPatientContext:
     """Return the chat-oriented patient context for ``patient_id``."""
@@ -58,7 +68,8 @@ async def read_patient_context(
             detail=f"Patient '{patient_id}' was not found.",
         )
     try:
-        return map_patient_context(raw_context)
+        context = map_patient_context(raw_context)
+        return filter_context_by_categories(context, categories)
     except ValueError as exc:  # pragma: no cover - defensive branch
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
