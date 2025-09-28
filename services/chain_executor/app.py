@@ -207,9 +207,11 @@ class PatientContextClient:
         if not normalized:
             raise PatientContextServiceError("Patient identifier cannot be empty")
 
-        params: list[tuple[str, str]] | None = None
+        params: httpx.QueryParams | None = None
         if categories:
-            params = [("categories", slug) for slug in categories if slug]
+            params = httpx.QueryParams(
+                [("categories", slug) for slug in categories if slug]
+            )
 
         try:
             response = await self._http.get(
