@@ -1,0 +1,150 @@
+{
+  "demographics": {
+    "patientId": "123456",
+    "mrn": "MRN0012345",
+    "firstName": "Ava",
+    "lastName": "Thompson",
+    "fullName": "Ava M. Thompson",
+    "dateOfBirth": "1982-09-14",
+    "age": 41,
+    "gender": "Female",
+    "language": "English",
+    "address": "123 Main St, Springfield, IL",
+    "phone": "555-123-4567",
+    "email": "ava.thompson@example.com",
+    "preferredContactMethod": "phone"
+  },
+  "encounters": [
+    {
+      "encounterId": "enc-1001",
+      "type": "outpatient",
+      "reason": "Hypertension follow up",
+      "start": "2024-03-01T09:00:00+00:00",
+      "end": "2024-03-01T09:30:00+00:00",
+      "location": "Springfield Clinic",
+      "provider": "Dr. Samuel Carter",
+      "status": "completed",
+      "notes": "Stable vitals, medication adherence good."
+    }
+  ],
+  "medications": [
+    {
+      "name": "Lisinopril",
+      "dose": "10 mg",
+      "route": "PO",
+      "frequency": "daily",
+      "startDate": "2023-11-15",
+      "indication": "Hypertension",
+      "status": "active"
+    },
+    {
+      "name": "Atorvastatin",
+      "dose": "20 mg",
+      "route": "PO",
+      "frequency": "daily",
+      "startDate": "2022-08-05",
+      "indication": "Hyperlipidemia",
+      "status": "active"
+    }
+  ],
+  "allergies": [
+    {
+      "substance": "Penicillin",
+      "reaction": "Rash",
+      "severity": "mild",
+      "status": "active",
+      "notedDate": "2001-04-12"
+    }
+  ],
+  "problems": [
+    {
+      "name": "Essential hypertension",
+      "status": "active",
+      "onset": "2019-06-10",
+      "notes": "Controlled with medication."
+    },
+    {
+      "name": "Hyperlipidemia",
+      "status": "active",
+      "onset": "2022-07-22"
+    }
+  ],
+  "vitalSigns": [
+    {
+      "type": "blood_pressure",
+      "value": "128/82",
+      "unit": "mmHg",
+      "takenAt": "2024-03-01T09:10:00+00:00"
+    },
+    {
+      "type": "heart_rate",
+      "value": "72",
+      "unit": "bpm",
+      "takenAt": "2024-03-01T09:10:00+00:00"
+    }
+  ],
+  "labResults": [
+    {
+      "testCode": "BMP",
+      "testName": "Basic Metabolic Panel",
+      "value": "Within normal limits",
+      "status": "final",
+      "collectedAt": "2024-02-20T07:20:00+00:00",
+      "resultedAt": "2024-02-20T15:45:00+00:00"
+    },
+    {
+      "testCode": "LIPID",
+      "testName": "Lipid Panel",
+      "value": "LDL 102 mg/dL",
+      "status": "final",
+      "collectedAt": "2024-02-20T07:20:00+00:00",
+      "resultedAt": "2024-02-20T15:45:00+00:00"
+    }
+  ],
+  "clinicalNotes": [
+    {
+      "noteId": "note-123",
+      "title": "Outpatient visit note",
+      "noteType": "Progress Note",
+      "createdAt": "2024-03-01T09:35:00+00:00",
+      "author": "Dr. Samuel Carter",
+      "content": "Patient reports improved diet and adherence to medication."
+    }
+  ],
+  "careTeam": [
+    {
+      "name": "Samuel Carter, MD",
+      "role": "Primary Care Physician",
+      "organization": "Springfield Clinic"
+    },
+    {
+      "name": "Angela Patel, RN",
+      "role": "Nurse Care Manager",
+      "organization": "Springfield Clinic"
+    }
+  ],
+  "socialHistory": [
+    {
+      "category": "Tobacco",
+      "description": "Never smoker",
+      "recordedAt": "2020-05-10"
+    },
+    {
+      "category": "Alcohol",
+      "description": "Social drinking, 1-2 glasses of wine/week",
+      "recordedAt": "2023-01-19"
+    }
+  ],
+  "familyHistory": [
+    {
+      "relationship": "Father",
+      "condition": "Coronary artery disease",
+      "status": "deceased"
+    },
+    {
+      "relationship": "Mother",
+      "condition": "Type 2 diabetes",
+      "status": "living"
+    }
+  ]
+}
