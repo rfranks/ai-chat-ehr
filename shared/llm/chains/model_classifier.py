@@ -272,7 +272,7 @@ Structured model metadata:
 {model_json}
 
 Prompt metadata (JSON):
-{{prompt_json}}
+{prompt_json}
 """.strip()
 
 
