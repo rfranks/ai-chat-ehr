@@ -81,6 +81,10 @@ services:
   ```bash
   curl "http://localhost:8002/patients/123456/context" | jq
   ```
+* Discover available LLM providers and metadata from the chain executor service:
+  ```bash
+  curl http://localhost:8003/chains/models | jq
+  ```
 * Execute a two-step chain that pulls patient context and drafts a clinical plan:
   ```bash
   curl -X POST http://localhost:8003/chains/execute \
