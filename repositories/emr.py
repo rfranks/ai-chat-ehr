@@ -14,7 +14,9 @@ _FIXTURE_DIRECTORY = Path(__file__).parent / "fixtures" / "patients"
 class FixtureLoadError(RuntimeError):
     """Raised when patient fixtures cannot be loaded from disk."""
 
-    def __init__(self, errors: list[str], fixtures: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, errors: list[str], fixtures: dict[str, Any] | None = None
+    ) -> None:
         message = "Failed to load patient fixtures:\n" + "\n".join(errors)
         super().__init__(message)
         self.errors = errors
@@ -40,7 +42,9 @@ def _extract_patient_id(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
-def load_patient_fixtures(paths: Iterable[Path]) -> dict[str, dict[str, dict[str, Any]]]:
+def load_patient_fixtures(
+    paths: Iterable[Path],
+) -> dict[str, dict[str, dict[str, Any]]]:
     """Load patient fixtures from the provided iterable of filesystem paths."""
 
     fixtures: dict[str, dict[str, dict[str, Any]]] = {}
@@ -49,7 +53,9 @@ def load_patient_fixtures(paths: Iterable[Path]) -> dict[str, dict[str, dict[str
     for path in paths:
         fixture_type = _infer_fixture_type(path.name)
         if fixture_type is None:
-            errors.append(f"{path}: filename must end with '_record.json' or '_context.json'")
+            errors.append(
+                f"{path}: filename must end with '_record.json' or '_context.json'"
+            )
             continue
 
         try:
@@ -67,7 +73,9 @@ def load_patient_fixtures(paths: Iterable[Path]) -> dict[str, dict[str, dict[str
 
         patient_id = _extract_patient_id(payload)
         if not patient_id:
-            errors.append(f"{path}: missing patient identifier in demographics.patientId")
+            errors.append(
+                f"{path}: missing patient identifier in demographics.patientId"
+            )
             continue
 
         fixtures.setdefault(patient_id, {})[fixture_type] = payload  # type: ignore[index]
