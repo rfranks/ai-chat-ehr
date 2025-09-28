@@ -2,7 +2,11 @@ import pytest
 
 from shared.models.chat import ChatPrompt, ChatPromptKey
 
-from services.prompt_catalog.repositories import PromptRepository
+from services.prompt_catalog.repositories import (
+    PromptRepository,
+    _DEFAULT_PROMPTS,
+    get_prompt_repository,
+)
 
 
 def _create_repository() -> PromptRepository:
@@ -86,3 +90,28 @@ async def test_search_prompts_matches_metadata_values() -> None:
     results = await repository.search_prompts(query="cardiology")
 
     assert results == [prompt]
+
+
+@pytest.mark.anyio("asyncio")
+async def test_default_prompt_catalog_contains_expected_prompts() -> None:
+    repository = get_prompt_repository()
+
+    prompts = await repository.list_prompts()
+
+    assert len(prompts) == len(_DEFAULT_PROMPTS)
+
+    expected_keys = {
+        ChatPromptKey.PATIENT_CONTEXT,
+        ChatPromptKey.CLINICAL_PLAN,
+        ChatPromptKey.FOLLOW_UP_QUESTIONS,
+        ChatPromptKey.PATIENT_SUMMARY,
+        ChatPromptKey.DIFFERENTIAL_DIAGNOSIS,
+        ChatPromptKey.PATIENT_EDUCATION,
+        ChatPromptKey.SAFETY_CHECKS,
+        ChatPromptKey.TRIAGE_ASSESSMENT,
+    }
+
+    for key in expected_keys:
+        prompt = await repository.get_prompt(key)
+        assert prompt is not None
+        assert prompt.key is key
