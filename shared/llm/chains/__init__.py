@@ -5,9 +5,17 @@ from .category_classifier import (
     DEFAULT_PROMPT_CATEGORIES,
     PromptEMRDataCategory,
 )
+from .model_classifier import (
+    DEFAULT_MODEL_CLASSIFIER_MODELS,
+    LLMModelClassifierMetadata,
+    ModelClassifier,
+)
 
 __all__ = [
     "CategoryClassifier",
     "DEFAULT_PROMPT_CATEGORIES",
     "PromptEMRDataCategory",
+    "DEFAULT_MODEL_CLASSIFIER_MODELS",
+    "LLMModelClassifierMetadata",
+    "ModelClassifier",
 ]

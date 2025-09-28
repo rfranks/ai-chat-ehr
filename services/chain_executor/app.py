@@ -21,6 +21,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from shared.config.settings import Settings, get_settings
 from shared.llm import (
+    DEFAULT_MODEL_PROVIDER,
     InvalidPromptTemplateError,
     MissingPromptTemplateError,
     ModelSpec,
@@ -32,7 +33,7 @@ from shared.llm import (
     resolve_provider,
 )
 from shared.llm.providers import LLMProvider
-from shared.llm.chains.category_classifier import CategoryClassifier
+from shared.llm.chains import CategoryClassifier, ModelClassifier
 from shared.models.chain import (
     ChainExecutionRequest,
     ChainExecutionResponse,
@@ -407,6 +408,136 @@ async def _ensure_prompt_categories(
     return classifier
 
 
+def _coerce_provider(value: Any) -> LLMProvider | None:
+    if isinstance(value, LLMProvider):
+        return value
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return None
+        try:
+            return LLMProvider(candidate)
+        except ValueError:
+            pass
+        normalized = candidate.lower()
+        for provider in LLMProvider:
+            variants = {
+                provider.value.lower(),
+                provider.value.replace("/", "-").lower(),
+                provider.value.replace("/", ":").lower(),
+                provider.name.lower(),
+            }
+            if normalized in variants:
+                return provider
+        try:
+            spec = resolve_model_spec(candidate)
+        except Exception:  # pragma: no cover - defensive
+            return None
+        alias_candidates = {
+            spec.provider.value.lower(),
+            spec.canonical_name.lower(),
+            spec.model_name.lower(),
+            spec.provider.name.lower(),
+        }
+        alias_candidates.update(alias.lower() for alias in spec.aliases)
+        normalized_variants = set(alias_candidates)
+        for alias in list(alias_candidates):
+            normalized_variants.add(alias.replace("/", "-"))
+            normalized_variants.add(alias.replace("/", ":"))
+        if normalized in normalized_variants:
+            return spec.provider
+        if normalized.replace("/", "-") in normalized_variants:
+            return spec.provider
+    return None
+
+
+def _extract_prompt_model_preferences(
+    prompt: ChatPrompt,
+) -> tuple[str | None, LLMProvider | None]:
+    if not isinstance(prompt.metadata, Mapping):
+        return None, None
+
+    metadata = prompt.metadata
+    model_identifier: str | None = None
+    provider_hint: LLMProvider | None = None
+
+    model_fields = ("model", "model_name", "modelName")
+    for field in model_fields:
+        value = metadata.get(field)
+        if isinstance(value, str):
+            candidate = value.strip()
+            if candidate:
+                model_identifier = candidate
+                break
+        elif isinstance(value, Mapping):
+            nested = value.get("id") or value.get("slug") or value.get("name")
+            if isinstance(nested, str):
+                candidate = nested.strip()
+                if candidate:
+                    model_identifier = candidate
+                    break
+
+    provider_fields = ("model_provider", "modelProvider", "provider", "llm", "engine")
+    for field in provider_fields:
+        value = metadata.get(field)
+        provider_hint = _coerce_provider(value)
+        if provider_hint is not None:
+            break
+
+    return model_identifier, provider_hint
+
+
+async def _classify_model_slug(
+    prompt: ChatPrompt, settings: Settings
+) -> str | None:
+    try:
+        classifier_llm = DEFAULT_MODEL_PROVIDER.create_client(settings=settings)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning(
+            "prompt_model_classifier_initialization_failed",
+            error=str(exc),
+            exc_info=True,
+        )
+        return None
+
+    try:
+        classifier = ModelClassifier.create(classifier_llm)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning(
+            "prompt_model_classifier_creation_failed",
+            error=str(exc),
+            exc_info=True,
+        )
+        return None
+
+    prompt_payload = prompt.model_dump(mode="json", by_alias=True, exclude_none=True)
+    prompt_json = json.dumps(prompt_payload, ensure_ascii=False, indent=2)
+
+    try:
+        chain = classifier.chain
+        ainvoke = getattr(chain, "ainvoke", None)
+        if callable(ainvoke):
+            result = await ainvoke({"prompt_json": prompt_json})
+        else:  # pragma: no cover - legacy synchronous chains
+            result = await asyncio.to_thread(chain.invoke, {"prompt_json": prompt_json})
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning(
+            "prompt_model_classification_failed",
+            error=str(exc),
+            exc_info=True,
+        )
+        return None
+
+    output_key = getattr(classifier.chain, "output_key", "text")
+    raw_output: str
+    if isinstance(result, Mapping):
+        raw_output = str(result.get(output_key) or result.get("text") or "")
+    else:
+        raw_output = str(result)
+
+    return classifier.parse_response(raw_output)
+
+
 _OUTPUT_KEY_SANITIZER = re.compile(r"[^0-9a-zA-Z]+")
 
 
@@ -673,25 +804,6 @@ async def _build_execution_context(
         if legacy_identifier:
             provider_hint = resolve_provider(legacy_identifier)
 
-    model_spec = resolve_model_spec(model_identifier, provider_hint=provider_hint)
-    provider = model_spec.provider
-
-    try:
-        llm = provider.create_client(
-            settings=settings,
-            temperature=payload.temperature,
-            model_override=model_identifier,
-        )
-    except (ProblemDetailsException, HTTPException):
-        raise
-    except Exception as exc:  # pragma: no cover - unexpected provider failure
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to initialize language model: {exc}",
-        ) from exc
-
-    _apply_model_overrides(llm, max_tokens=payload.max_tokens, top_p=payload.top_p)
-
     patient_context: EHRPatientContext | None = None
     if payload.patient_id:
         try:
@@ -732,10 +844,8 @@ async def _build_execution_context(
         variables.setdefault(key, value)
     available_variables.update(derived_context.keys())
 
-    used_output_keys: set[str] = set()
-    resolved_prompts: list[_ResolvedPrompt] = []
-    steps: list[ChainStepResult] = []
-    category_classifier: CategoryClassifier | None = None
+    resolved_prompts_raw: list[ChatPrompt] = []
+    prompt_from_catalog: list[bool] = []
 
     for index, item in enumerate(payload.chain):
         try:
@@ -752,6 +862,69 @@ async def _build_execution_context(
                 status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
             ) from exc
 
+        resolved_prompts_raw.append(prompt)
+        prompt_from_catalog.append(isinstance(item, ChatPromptKey))
+
+    if not resolved_prompts_raw:
+        raise HTTPException(  # pragma: no cover - defensive
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Prompt chain cannot be empty.",
+        )
+
+    final_prompt = resolved_prompts_raw[-1]
+    final_from_catalog = prompt_from_catalog[-1]
+    prompt_model_identifier, prompt_provider_hint = _extract_prompt_model_preferences(
+        final_prompt
+    )
+
+    if not model_identifier and prompt_model_identifier:
+        model_identifier = prompt_model_identifier
+
+    if prompt_provider_hint is not None:
+        provider_hint = prompt_provider_hint
+
+    needs_model_classifier = (
+        not model_identifier
+        and (
+            not final_from_catalog
+            or (prompt_model_identifier is None and prompt_provider_hint is None)
+        )
+    )
+
+    if needs_model_classifier:
+        slug = await _classify_model_slug(final_prompt, settings)
+        if slug:
+            model_identifier = slug
+            try:
+                provider_hint = resolve_provider(slug)
+            except Exception:  # pragma: no cover - defensive logging
+                logger.warning("prompt_model_classifier_invalid_slug", slug=slug)
+
+    model_spec = resolve_model_spec(model_identifier, provider_hint=provider_hint)
+    provider = model_spec.provider
+
+    try:
+        llm = provider.create_client(
+            settings=settings,
+            temperature=payload.temperature,
+            model_override=model_identifier,
+        )
+    except (ProblemDetailsException, HTTPException):
+        raise
+    except Exception as exc:  # pragma: no cover - unexpected provider failure
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to initialize language model: {exc}",
+        ) from exc
+
+    _apply_model_overrides(llm, max_tokens=payload.max_tokens, top_p=payload.top_p)
+
+    used_output_keys: set[str] = set()
+    resolved_prompts: list[_ResolvedPrompt] = []
+    steps: list[ChainStepResult] = []
+    category_classifier: CategoryClassifier | None = None
+
+    for index, prompt in enumerate(resolved_prompts_raw):
         category_classifier = await _ensure_prompt_categories(
             prompt, llm, category_classifier
         )

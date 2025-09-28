@@ -21,6 +21,7 @@ class ModelSpec:
 
 
 DEFAULT_PROVIDER = LLMProvider.OPENAI_GPT_35_TURBO
+DEFAULT_MODEL_PROVIDER = DEFAULT_PROVIDER
 DEFAULT_CANONICAL_MODEL_NAME = DEFAULT_PROVIDER.value
 
 
@@ -382,6 +383,7 @@ def resolve_model_name(
 __all__ = [
     "ModelSpec",
     "DEFAULT_PROVIDER",
+    "DEFAULT_MODEL_PROVIDER",
     "DEFAULT_CANONICAL_MODEL_NAME",
     "available_model_specs",
     "canonical_model_name",
