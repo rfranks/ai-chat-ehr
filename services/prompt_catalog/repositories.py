@@ -155,6 +155,7 @@ _DEFAULT_PROMPTS: tuple[ChatPrompt, ...] = (
             "recent events, and any notable social determinants of health."
         ),
         input_variables=["patient_background"],
+        categories=["patientDetail", "problems", "socialHistory", "careTeam"],
     ),
     ChatPrompt(
         key=ChatPromptKey.CLINICAL_PLAN,
@@ -165,6 +166,7 @@ _DEFAULT_PROMPTS: tuple[ChatPrompt, ...] = (
             "plan addressing differential diagnoses, recommended studies, and follow-up."
         ),
         input_variables=["encounter_overview"],
+        categories=["problems", "orders", "medications", "labs", "testResults"],
     ),
     ChatPrompt(
         key=ChatPromptKey.FOLLOW_UP_QUESTIONS,
@@ -175,6 +177,68 @@ _DEFAULT_PROMPTS: tuple[ChatPrompt, ...] = (
             "questions to explore unresolved issues and safety concerns."
         ),
         input_variables=["patient_summary"],
+        categories=["notes", "problems", "patientDetail"],
+    ),
+    ChatPrompt(
+        key=ChatPromptKey.PATIENT_SUMMARY,
+        title="Comprehensive Patient Summary",
+        description="Produce an integrated narrative that blends demographics, history, and active concerns.",
+        template=(
+            "Integrate the structured details below into a cohesive patient summary. "
+            "Demographics: {demographics}. Active problems: {active_problems}. "
+            "Recent clinical highlights: {clinical_highlights}. Focus on trends and "
+            "clinical relevance for the current encounter."
+        ),
+        input_variables=["demographics", "active_problems", "clinical_highlights"],
+        categories=["patientDetail", "problems", "notes"],
+    ),
+    ChatPrompt(
+        key=ChatPromptKey.DIFFERENTIAL_DIAGNOSIS,
+        title="Differential Diagnosis Explorer",
+        description="Outline prioritized differential diagnoses with supporting evidence and next steps.",
+        template=(
+            "Given the chief concern {chief_complaint} and key findings {clinical_findings}, "
+            "list the top differential diagnoses. For each, summarise supporting/contradicting "
+            "data and note recommended diagnostics to confirm or exclude the condition."
+        ),
+        input_variables=["chief_complaint", "clinical_findings"],
+        categories=["problems", "labs", "testResults", "notes"],
+    ),
+    ChatPrompt(
+        key=ChatPromptKey.PATIENT_EDUCATION,
+        title="Patient Education Brief",
+        description="Draft plain-language counseling points tailored to the patient's condition and treatments.",
+        template=(
+            "Using the treatment plan {treatment_plan} and patient considerations {patient_considerations}, "
+            "create education points that explain the condition, medications, lifestyle adjustments, "
+            "and follow-up needs in accessible language. Highlight safety precautions and when to seek care."
+        ),
+        input_variables=["treatment_plan", "patient_considerations"],
+        categories=["medications", "carePlans", "socialHistory"],
+    ),
+    ChatPrompt(
+        key=ChatPromptKey.SAFETY_CHECKS,
+        title="Care Safety Checklist",
+        description="Review high-risk medications, allergies, and monitoring requirements for safety.",
+        template=(
+            "Review the active medication list {active_medications}, allergy history {allergy_history}, "
+            "and recent vitals {recent_vitals}. Summarize potential safety concerns such as interactions, "
+            "contraindications, or monitoring gaps, and recommend mitigation steps."
+        ),
+        input_variables=["active_medications", "allergy_history", "recent_vitals"],
+        categories=["medications", "allergies", "vitals", "orders"],
+    ),
+    ChatPrompt(
+        key=ChatPromptKey.TRIAGE_ASSESSMENT,
+        title="Urgency Triage Assessment",
+        description="Assess visit urgency based on presenting symptoms, vitals, and risk factors.",
+        template=(
+            "Given the presenting symptoms {presenting_symptoms}, vital trends {triage_vitals}, "
+            "and notable risk factors {risk_factors}, determine the appropriate triage level. "
+            "Justify the recommendation with specific findings and suggest immediate interventions if needed."
+        ),
+        input_variables=["presenting_symptoms", "triage_vitals", "risk_factors"],
+        categories=["vitals", "patientDetail", "riskScores", "encounters"],
     ),
 )
 

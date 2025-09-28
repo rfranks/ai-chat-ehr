@@ -25,6 +25,23 @@ can be imported into tooling such as Postman or Stoplight. See
 [`docs/architecture.md`](docs/architecture.md) for a deeper dive into the orchestration
 strategy, provider selection, and prompt categorisation logic.
 
+## Bundled prompt catalog
+
+The prompt catalog service ships with reusable templates that cover common
+clinical workflows. Each prompt includes category labels so downstream services
+can request the right slices of patient context.
+
+| Key | Title | Description | Categories |
+| --- | --- | --- | --- |
+| `patient_context` | Patient Context Overview | Summarise clinical background and social determinants for the visit. | patientDetail, problems, socialHistory, careTeam |
+| `clinical_plan` | Clinical Plan Outline | Draft a multi-domain assessment and plan from encounter details. | problems, orders, medications, labs, testResults |
+| `follow_up_questions` | Follow-up Question Suggestions | Propose clarifying follow-up questions based on open issues. | notes, problems, patientDetail |
+| `patient_summary` | Comprehensive Patient Summary | Combine demographics, active problems, and recent findings into a cohesive narrative. | patientDetail, problems, notes |
+| `differential_diagnosis` | Differential Diagnosis Explorer | Prioritise differentials with supporting evidence and recommended workup. | problems, labs, testResults, notes |
+| `patient_education` | Patient Education Brief | Translate the care plan into accessible counselling points and safety advice. | medications, carePlans, socialHistory |
+| `safety_checks` | Care Safety Checklist | Flag medication, allergy, and monitoring concerns requiring action. | medications, allergies, vitals, orders |
+| `triage_assessment` | Urgency Triage Assessment | Evaluate visit urgency from presenting symptoms, vitals, and risk factors. | vitals, patientDetail, riskScores, encounters |
+
 ## Environment setup
 
 ### Configure environment variables
