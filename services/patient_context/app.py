@@ -43,12 +43,12 @@ async def health() -> dict[str, str]:
 
 
 @router.get(
-    "/context",
+    "/{patient_id}/context",
     response_model=EHRPatientContext,
     status_code=status.HTTP_200_OK,
 )
 async def read_patient_context(
-    patient_id: str = Query(..., description="Unique identifier for the patient"),
+    patient_id: str = Path(..., description="Unique identifier for the patient"),
     repo: EMRRepository = Depends(get_repository),
 ) -> EHRPatientContext:
     """Return the chat-oriented patient context for ``patient_id``."""
@@ -72,13 +72,7 @@ async def read_patient_context(
     "/{patient_id}", response_model=PatientRecord, status_code=status.HTTP_200_OK
 )
 async def read_patient_record(
-    patient_id: Annotated[
-        str,
-        Path(
-            pattern=r"^\d+$",
-            description="Unique numeric identifier for the patient",
-        ),
-    ],
+    patient_id: str = Path(..., description="Unique identifier for the patient"),
     repo: EMRRepository = Depends(get_repository),
 ) -> PatientRecord:
     """Return the normalized patient record for ``patient_id``."""

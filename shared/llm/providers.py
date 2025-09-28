@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Optional
 
 from shared.config.settings import Settings
 from .adapters import (
@@ -13,13 +13,7 @@ from .adapters import (
     vertex as vertex_adapter,
 )
 
-try:  # pragma: no cover - runtime dependency optional during type checking
-    from langchain_core.language_models import BaseLanguageModel
-except ImportError:  # pragma: no cover
-    try:  # Fallback for pre ``langchain-core`` package layouts.
-        from langchain.schema.language_model import BaseLanguageModel  # type: ignore
-    except ImportError:  # pragma: no cover
-        BaseLanguageModel = Any  # type: ignore[misc,assignment]
+from langchain_core.language_models.base import BaseLanguageModel
 
 
 class LLMProvider(str, Enum):

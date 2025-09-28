@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "API Gateway",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "args": [
@@ -16,15 +16,11 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)",
-            "presentation": {
-                "group": "Microservices",
-                "order": 1
-            }
+            "preLaunchTask": "pip install (workspace)"
         },
         {
             "name": "Prompt Catalog",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "args": [
@@ -37,15 +33,11 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)",
-            "presentation": {
-                "group": "Microservices",
-                "order": 2
-            }
+            "preLaunchTask": "pip install (workspace)"
         },
         {
             "name": "Patient Context",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "args": [
@@ -58,15 +50,11 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)",
-            "presentation": {
-                "group": "Microservices",
-                "order": 3
-            }
+            "preLaunchTask": "pip install (workspace)"
         },
         {
             "name": "Chain Executor",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "args": [
@@ -79,12 +67,8 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)",
-            "presentation": {
-                "group": "Microservices",
-                "order": 4
-            }
-        }
+            "preLaunchTask": "pip install (workspace)"
+        },
     ],
     "compounds": [
         {

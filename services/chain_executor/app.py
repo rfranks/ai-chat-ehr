@@ -201,9 +201,7 @@ class PatientContextClient:
             raise PatientContextServiceError("Patient identifier cannot be empty")
 
         try:
-            response = await self._http.get(
-                "/patients/context", params={"patient_id": normalized}
-            )
+            response = await self._http.get(f"/patients/{patient_id}/context")
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:  # pragma: no cover - network failure
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:

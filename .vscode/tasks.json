@@ -17,8 +17,10 @@
             },
             "presentation": {
                 "reveal": "always",
-                "panel": "shared",
-                "clear": true
+                "panel": "new",
+                "group": "Microservices",
+                "clear": true,
+                "close": true,
             },
             "problemMatcher": []
         },
@@ -41,7 +43,9 @@
             },
             "presentation": {
                 "reveal": "always",
-                "panel": "dedicated"
+                "panel": "new",
+                "group": "Microservices",
+                "close": true
             },
             "problemMatcher": [],
             "dependsOn": "pip install (workspace)",
@@ -66,7 +70,9 @@
             },
             "presentation": {
                 "reveal": "always",
-                "panel": "dedicated"
+                "panel": "new",
+                "group": "Microservices",
+                "close": true
             },
             "problemMatcher": [],
             "dependsOn": "pip install (workspace)",
@@ -91,7 +97,9 @@
             },
             "presentation": {
                 "reveal": "always",
-                "panel": "dedicated"
+                "panel": "dedicated",
+                "group": "Microservices",
+                "close": true
             },
             "problemMatcher": [],
             "dependsOn": "pip install (workspace)",
@@ -116,7 +124,9 @@
             },
             "presentation": {
                 "reveal": "always",
-                "panel": "dedicated"
+                "panel": "dedicated",
+                "group": "Microservices",
+                "close": true
             },
             "problemMatcher": [],
             "dependsOn": "pip install (workspace)",

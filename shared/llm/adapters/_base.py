@@ -9,13 +9,7 @@ from typing import Any, Callable, Dict, Optional
 from shared.config.settings import Settings, get_settings
 from shared.observability.logger import get_logger
 
-try:  # pragma: no cover - optional dependency shim
-    from langchain_core.language_models import BaseLanguageModel
-except ImportError:  # pragma: no cover
-    try:
-        from langchain.schema.language_model import BaseLanguageModel  # type: ignore
-    except ImportError:  # pragma: no cover
-        BaseLanguageModel = Any  # type: ignore[misc,assignment]
+from langchain_core.language_models.base import BaseLanguageModel
 
 from tenacity import (  # type: ignore[import-not-found]
     AsyncRetrying,

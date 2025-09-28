@@ -74,7 +74,8 @@ def get_chat_model(
 
     model_kwargs = filter_model_kwargs(ChatOpenAI, candidate_kwargs)
     model = ChatOpenAI(**model_kwargs)
-    model = ensure_langchain_compat(model)
+    return model
+    # model = ensure_langchain_compat(model)
     return attach_retry(
         model,
         label=f"openai/{model_name}",
