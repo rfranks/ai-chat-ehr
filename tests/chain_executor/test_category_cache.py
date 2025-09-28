@@ -55,7 +55,9 @@ def chain_app(monkeypatch: pytest.MonkeyPatch):
     def configure_logging(*args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
         return None
 
-    def get_logger(*args: Any, **kwargs: Any) -> _DummyLogger:  # pragma: no cover - stub
+    def get_logger(
+        *args: Any, **kwargs: Any
+    ) -> _DummyLogger:  # pragma: no cover - stub
         return _DummyLogger()
 
     def generate_request_id() -> str:  # pragma: no cover - stub
