@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain_core.messages import AIMessage, AIMessageChunk
-from pydantic import AnyHttpUrl, Field
+from pydantic import AnyHttpUrl, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from shared.config.settings import Settings, get_settings
@@ -32,6 +32,7 @@ from shared.llm import (
     resolve_model_spec,
     resolve_provider,
 )
+from shared.llm.llmmodels import get_all_model_specs
 from shared.llm.providers import LLMProvider
 from shared.llm.chains import (
     CategoryClassifier,
@@ -107,6 +108,41 @@ def get_service_settings() -> ChainExecutorSettings:
 
 _prompt_http_client: httpx.AsyncClient | None = None
 _context_http_client: httpx.AsyncClient | None = None
+
+
+class ChainExecutorServiceMetadata(BaseModel):
+    """Describes metadata for the chain executor service."""
+
+    name: str = Field(..., description="Logical name of the service.")
+    default_model_provider: str = Field(
+        ..., description="Configured default model provider identifier."
+    )
+    default_model_name: str = Field(
+        ..., description="Configured default provider-specific model name."
+    )
+
+
+class ChainExecutorModelSpec(BaseModel):
+    """Serialized representation of a model specification."""
+
+    provider: str = Field(..., description="Canonical provider identifier value.")
+    canonical_name: str = Field(
+        ..., description="Canonical model name for the provider configuration."
+    )
+    aliases: list[str] = Field(
+        default_factory=list,
+        description="Ordered list of accepted aliases for the model.",
+    )
+    description: str | None = Field(
+        default=None, description="Human readable model description."
+    )
+
+
+class ChainExecutorModelsResponse(BaseModel):
+    """Response payload returned by the models discovery endpoint."""
+
+    service: ChainExecutorServiceMetadata
+    models: list[ChainExecutorModelSpec]
 
 
 def _strip_trailing_slash(url: str) -> str:
@@ -207,9 +243,11 @@ class PatientContextClient:
         if not normalized:
             raise PatientContextServiceError("Patient identifier cannot be empty")
 
-        params: list[tuple[str, str | int | float | bool | None]] | None = None
+        params: httpx.QueryParams | None = None
         if categories:
-            params = [("categories", slug) for slug in categories if slug]
+            params = httpx.QueryParams(
+                [("categories", slug) for slug in categories if slug]
+            )
 
         try:
             response = await self._http.get(
@@ -1167,6 +1205,34 @@ async def _execute_chain_streaming(
     return iterator()
 
 
+@router.get(
+    "/models",
+    response_model=ChainExecutorModelsResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def list_models(
+    settings: Settings = Depends(get_settings),
+) -> ChainExecutorModelsResponse:
+    """Return metadata for available language model providers."""
+
+    specs = get_all_model_specs()
+    metadata = ChainExecutorServiceMetadata(
+        name=SERVICE_NAME,
+        default_model_provider=settings.default_model.provider,
+        default_model_name=settings.default_model.name,
+    )
+    models = [
+        ChainExecutorModelSpec(
+            provider=spec.provider.value,
+            canonical_name=spec.canonical_name,
+            aliases=list(spec.aliases),
+            description=spec.description,
+        )
+        for spec in specs
+    ]
+    return ChainExecutorModelsResponse(service=metadata, models=models)
+
+
 @router.post(
     "/execute",
     response_model=ChainExecutionResponse,
@@ -1215,4 +1281,11 @@ def get_app() -> FastAPI:
     return app
 
 
-__all__ = ["app", "get_app", "health", "execute_chain", "stream_chain_execution"]
+__all__ = [
+    "app",
+    "get_app",
+    "health",
+    "list_models",
+    "execute_chain",
+    "stream_chain_execution",
+]

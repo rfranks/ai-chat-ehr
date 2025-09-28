@@ -81,10 +81,14 @@ services:
   ```bash
   curl "http://localhost:8002/patients/123456/context" | jq
   ```
-  Include one or more `categories` query parameters to filter the response to
+* Include one or more `categories` query parameters to filter the response to
   specific data domains (for example, only labs and the care team):
   ```bash
   curl "http://localhost:8002/patients/123456/context?categories=labs&categories=careTeam" | jq
+  ```
+* Discover available LLM providers and metadata from the chain executor service:
+  ```bash
+  curl http://localhost:8003/chains/models | jq
   ```
 * Execute a two-step chain that pulls patient context and drafts a clinical plan:
   ```bash
