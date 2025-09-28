@@ -15,7 +15,12 @@ def _create_repository() -> PromptRepository:
     return PromptRepository([prompt])
 
 
-@pytest.mark.asyncio
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
+
+
+@pytest.mark.anyio("asyncio")
 async def test_search_prompts_negative_limit_returns_empty_list() -> None:
     repository = _create_repository()
 
@@ -24,7 +29,7 @@ async def test_search_prompts_negative_limit_returns_empty_list() -> None:
     assert results == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio("asyncio")
 async def test_search_prompts_zero_limit_returns_empty_list() -> None:
     repository = _create_repository()
 
@@ -33,7 +38,7 @@ async def test_search_prompts_zero_limit_returns_empty_list() -> None:
     assert results == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio("asyncio")
 async def test_get_prompt_accepts_string_identifier() -> None:
     repository = _create_repository()
 
@@ -43,7 +48,7 @@ async def test_get_prompt_accepts_string_identifier() -> None:
     assert result.key is ChatPromptKey.PATIENT_CONTEXT
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio("asyncio")
 async def test_get_prompt_accepts_enum_repr() -> None:
     repository = _create_repository()
 
@@ -53,7 +58,7 @@ async def test_get_prompt_accepts_enum_repr() -> None:
     assert result.key is ChatPromptKey.PATIENT_CONTEXT
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio("asyncio")
 async def test_prompt_identifier_skips_blank_metadata_id() -> None:
     prompt = ChatPrompt(
         title="Example Prompt",
@@ -67,3 +72,17 @@ async def test_prompt_identifier_skips_blank_metadata_id() -> None:
 
     assert empty_lookup is None
     assert title_lookup is prompt
+
+
+@pytest.mark.anyio("asyncio")
+async def test_search_prompts_matches_metadata_values() -> None:
+    prompt = ChatPrompt(
+        title="Example Prompt",
+        template="Hello",
+        metadata={"clinical_area": "Cardiology"},
+    )
+    repository = PromptRepository([prompt])
+
+    results = await repository.search_prompts(query="cardiology")
+
+    assert results == [prompt]

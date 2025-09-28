@@ -90,7 +90,7 @@ def ensure_langchain_compat(model: BaseLanguageModel) -> BaseLanguageModel:
         for candidate_name in candidates:
             candidate = getattr(model, candidate_name, None)
             if callable(candidate):
-                setattr(model, target, candidate)
+                object.__setattr__(model, target, candidate)
                 break
 
     _ensure_method("invoke", ("__call__", "predict", "generate"))

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -306,12 +306,14 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
         "modelProvider": "openai/gpt-3.5-turbo",
     }
 
+    transport = ASGITransport(app=app)
     try:
-        async with AsyncClient(app=app, base_url="http://testserver") as client:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             response = await client.post("/chains/execute", json=payload)
     finally:
         app.dependency_overrides.pop(chain_app.get_prompt_catalog_client, None)
         app.dependency_overrides.pop(chain_app.get_patient_context_client, None)
+        await transport.aclose()
 
     assert response.status_code == 200
     body = response.json()
