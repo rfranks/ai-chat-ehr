@@ -717,9 +717,13 @@ async def _build_execution_context(
     if patient_context is not None:
         context_dict = patient_context.model_dump(by_alias=True, exclude_none=True)
         variables.setdefault("patient_context", context_dict)
+
+        json_ready_context = patient_context.model_dump(
+            mode="json", by_alias=True, exclude_none=True
+        )
         variables.setdefault(
             "patient_context_json",
-            json.dumps(context_dict, ensure_ascii=False, indent=2),
+            json.dumps(json_ready_context, ensure_ascii=False, indent=2),
         )
         available_variables.update({"patient_context", "patient_context_json"})
 
