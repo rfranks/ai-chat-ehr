@@ -19,7 +19,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class PromptEMRDataCategory:
-    """Structured metadata for a EMR data category for a Prompt.
+    """Structured metadata for an EMR data category for a Prompt.
     Hints to the classifier about the EMR data required to answer the question.
     """
 
