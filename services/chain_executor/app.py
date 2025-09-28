@@ -207,7 +207,7 @@ class PatientContextClient:
         if not normalized:
             raise PatientContextServiceError("Patient identifier cannot be empty")
 
-        params: list[tuple[str, str]] | None = None
+        params: list[tuple[str, str | int | float | bool | None]] | None = None
         if categories:
             params = [("categories", slug) for slug in categories if slug]
 

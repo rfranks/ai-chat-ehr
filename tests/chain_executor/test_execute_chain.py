@@ -425,7 +425,7 @@ async def test_execute_chain_prefers_prompt_categories_for_patient_context(
 
         async def get_patient_context(
             self, patient_id: str, *, categories: Sequence[str] | None = None
-        ) -> EHRPatientContext:
+        ) -> Any:
             self.calls.append(
                 {
                     "patient_id": patient_id,
@@ -484,7 +484,7 @@ async def test_execute_chain_uses_request_categories_when_prompt_missing(
 
         async def get_patient_context(
             self, patient_id: str, *, categories: Sequence[str] | None = None
-        ) -> EHRPatientContext:
+        ) -> Any:
             self.calls.append(
                 {
                     "patient_id": patient_id,
@@ -543,7 +543,7 @@ async def test_execute_chain_requests_categories_from_classifier(
 
         async def get_patient_context(
             self, patient_id: str, *, categories: Sequence[str] | None = None
-        ) -> EHRPatientContext:
+        ) -> Any:
             self.calls.append(
                 {
                     "patient_id": patient_id,

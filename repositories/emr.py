@@ -15,12 +15,14 @@ class FixtureLoadError(RuntimeError):
     """Raised when patient fixtures cannot be loaded from disk."""
 
     def __init__(
-        self, errors: list[str], fixtures: dict[str, Any] | None = None
+        self,
+        errors: list[str],
+        fixtures: dict[str, dict[str, Mapping[str, Any]]] | None = None,
     ) -> None:
         message = "Failed to load patient fixtures:\n" + "\n".join(errors)
         super().__init__(message)
         self.errors = errors
-        self.fixtures: dict[str, Any] = fixtures or {}
+        self.fixtures: dict[str, dict[str, Mapping[str, Any]]] = fixtures or {}
 
 
 def _infer_fixture_type(filename: str) -> str | None:
@@ -44,10 +46,10 @@ def _extract_patient_id(payload: Mapping[str, Any]) -> str | None:
 
 def load_patient_fixtures(
     paths: Iterable[Path],
-) -> dict[str, dict[str, dict[str, Any]]]:
+) -> dict[str, dict[str, Mapping[str, Any]]]:
     """Load patient fixtures from the provided iterable of filesystem paths."""
 
-    fixtures: dict[str, dict[str, dict[str, Any]]] = {}
+    fixtures: dict[str, dict[str, Mapping[str, Any]]] = {}
     errors: list[str] = []
 
     for path in paths:
@@ -91,6 +93,8 @@ def _discover_fixture_paths() -> list[Path]:
         return []
     return sorted(path for path in _FIXTURE_DIRECTORY.glob("*.json") if path.is_file())
 
+
+_PATIENT_FIXTURES: dict[str, dict[str, Mapping[str, Any]]]
 
 try:
     _PATIENT_FIXTURES = load_patient_fixtures(_discover_fixture_paths())
