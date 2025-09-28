@@ -6,6 +6,8 @@ import asyncio
 import hashlib
 import json
 import re
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, AsyncIterator, Iterable, Mapping, Sequence, cast
@@ -90,6 +92,16 @@ class ChainExecutorSettings(BaseSettings):
         default=10.0,
         ge=1.0,
         description="Timeout in seconds for outbound HTTP requests",
+    )
+    category_cache_max_entries: int = Field(
+        default=256,
+        ge=1,
+        description="Maximum number of prompt category cache entries to retain.",
+    )
+    category_cache_ttl_seconds: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Optional TTL in seconds for prompt category cache entries.",
     )
 
     model_config = SettingsConfigDict(
@@ -322,7 +334,17 @@ class _ChainExecutionContext:
     resolved_prompts: list[_ResolvedPrompt]
 
 
-_CATEGORY_CLASSIFICATION_CACHE: dict[str, tuple[str, ...]] = {}
+@dataclass
+class _CategoryCacheEntry:
+    categories: tuple[str, ...]
+    expires_at: float | None
+
+
+# Access to the category cache is guarded by an asyncio lock to ensure
+# safe concurrent interaction when multiple requests are processed
+# concurrently by the event loop.
+_CATEGORY_CACHE_LOCK = asyncio.Lock()
+_CATEGORY_CLASSIFICATION_CACHE: "OrderedDict[str, _CategoryCacheEntry]" = OrderedDict()
 _KNOWN_CATEGORY_SLUGS: frozenset[str] = frozenset(
     category.slug for category in DEFAULT_PROMPT_CATEGORIES
 )
@@ -414,6 +436,62 @@ def _category_cache_key(prompt: ChatPrompt) -> str:
     return "|".join(str(part) for part in parts if part)
 
 
+def _category_cache_config() -> tuple[int, float | None]:
+    settings = get_service_settings()
+    max_entries = int(settings.category_cache_max_entries)
+    ttl_seconds = settings.category_cache_ttl_seconds
+    ttl = float(ttl_seconds) if ttl_seconds is not None else None
+    return max_entries, ttl
+
+
+def _prune_expired_cache_entries(now: float | None = None) -> None:
+    if not _CATEGORY_CLASSIFICATION_CACHE:
+        return
+    current_time = time.monotonic() if now is None else now
+    expired_keys = [
+        key
+        for key, entry in _CATEGORY_CLASSIFICATION_CACHE.items()
+        if entry.expires_at is not None and entry.expires_at <= current_time
+    ]
+    for key in expired_keys:
+        _CATEGORY_CLASSIFICATION_CACHE.pop(key, None)
+
+
+async def _get_cached_categories(cache_key: str) -> tuple[str, ...] | None:
+    async with _CATEGORY_CACHE_LOCK:
+        _prune_expired_cache_entries()
+        entry = _CATEGORY_CLASSIFICATION_CACHE.get(cache_key)
+        if entry is None:
+            return None
+        _CATEGORY_CLASSIFICATION_CACHE.move_to_end(cache_key)
+        return entry.categories
+
+
+async def _set_cached_categories(
+    cache_key: str, categories: Iterable[str]
+) -> tuple[str, ...]:
+    stored = tuple(categories)
+    max_entries, ttl = _category_cache_config()
+    now = time.monotonic()
+    expires_at: float | None
+    if ttl is None:
+        expires_at = None
+    elif ttl <= 0:
+        expires_at = now
+    else:
+        expires_at = now + ttl
+    async with _CATEGORY_CACHE_LOCK:
+        _prune_expired_cache_entries(now)
+        _CATEGORY_CLASSIFICATION_CACHE[cache_key] = _CategoryCacheEntry(
+            categories=stored,
+            expires_at=expires_at,
+        )
+        _CATEGORY_CLASSIFICATION_CACHE.move_to_end(cache_key)
+        while len(_CATEGORY_CLASSIFICATION_CACHE) > max_entries:
+            _CATEGORY_CLASSIFICATION_CACHE.popitem(last=False)
+    return stored
+
+
 async def _ensure_prompt_categories(
     prompt: ChatPrompt,
     llm: Any,
@@ -425,7 +503,7 @@ async def _ensure_prompt_categories(
         return classifier
 
     cache_key = _category_cache_key(prompt)
-    cached = _CATEGORY_CLASSIFICATION_CACHE.get(cache_key)
+    cached = await _get_cached_categories(cache_key)
     if cached is not None:
         _set_prompt_categories(prompt, cached)
         return classifier
@@ -457,8 +535,9 @@ async def _ensure_prompt_categories(
     else:
         raw_output = str(result)
 
-    categories = tuple(classifier.parse_response(raw_output))
-    _CATEGORY_CLASSIFICATION_CACHE[cache_key] = categories
+    categories = await _set_cached_categories(
+        cache_key, classifier.parse_response(raw_output)
+    )
     _set_prompt_categories(prompt, categories)
     return classifier
 
