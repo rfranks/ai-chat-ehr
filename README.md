@@ -78,11 +78,13 @@ can request the right slices of patient context.
    ```bash
    docker build -f Dockerfile.base -t ai-chat-ehr-base .
    ```
-2. Start the prompt catalog, patient context, chain executor, and Redis services:
+2. Start the API gateway along with the prompt catalog, patient context, chain executor, and Redis services:
    ```bash
    docker compose up --build
    ```
-   The containers expose the service ports listed above on `localhost`. Use
+   The compose file ensures Redis comes online before the downstream APIs, and
+   the API gateway only starts once its dependencies report healthy. The
+   containers expose the service ports listed above on `localhost`. Use
    `docker compose down` to stop the stack when you finish testing.
 
 ## Request examples

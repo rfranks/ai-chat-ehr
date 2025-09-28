@@ -1,6 +1,25 @@
 version: "3.9"
 
 services:
+  api-gateway:
+    image: ai-chat-ehr-api-gateway:latest
+    build:
+      context: .
+      dockerfile: services/api_gateway/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ai-chat-ehr-base:latest}
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      prompt-catalog:
+        condition: service_started
+      patient-context:
+        condition: service_started
+      chain-executor:
+        condition: service_started
+
   prompt-catalog:
     image: ai-chat-ehr-prompt-catalog:latest
     build:
