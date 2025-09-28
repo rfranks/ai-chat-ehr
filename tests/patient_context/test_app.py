@@ -22,16 +22,24 @@ def _stub_logger_module(monkeypatch: pytest.MonkeyPatch) -> None:
     stub = types.ModuleType(module_name)
 
     class _DummyLogger:
-        def bind(self, *args: object, **kwargs: object) -> "_DummyLogger":  # pragma: no cover - stub
+        def bind(
+            self, *args: object, **kwargs: object
+        ) -> "_DummyLogger":  # pragma: no cover - stub
             return self
 
-        def info(self, *args: object, **kwargs: object) -> None:  # pragma: no cover - stub
+        def info(
+            self, *args: object, **kwargs: object
+        ) -> None:  # pragma: no cover - stub
             return None
 
-        def warning(self, *args: object, **kwargs: object) -> None:  # pragma: no cover - stub
+        def warning(
+            self, *args: object, **kwargs: object
+        ) -> None:  # pragma: no cover - stub
             return None
 
-        def contextualize(self, *args: object, **kwargs: object):  # pragma: no cover - stub
+        def contextualize(
+            self, *args: object, **kwargs: object
+        ):  # pragma: no cover - stub
             @contextmanager
             def _ctx():
                 yield None
@@ -84,12 +92,18 @@ async def test_read_patient_context_without_filters(client: AsyncClient) -> None
 
     payload = response.json()
     assert payload["demographics"]["patientId"] == "123456"
-    assert payload["medications"], "Expected medications to be present when no filters are applied"
-    assert payload["labResults"], "Expected lab results to be present when no filters are applied"
+    assert payload["medications"], (
+        "Expected medications to be present when no filters are applied"
+    )
+    assert payload["labResults"], (
+        "Expected lab results to be present when no filters are applied"
+    )
 
 
 @pytest.mark.anyio("asyncio")
-async def test_read_patient_context_with_selected_categories(client: AsyncClient) -> None:
+async def test_read_patient_context_with_selected_categories(
+    client: AsyncClient,
+) -> None:
     response = await client.get(
         "/patients/123456/context",
         params=[("categories", "labs"), ("categories", "careTeam")],

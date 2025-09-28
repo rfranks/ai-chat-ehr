@@ -145,9 +145,7 @@ def filter_context_by_categories(
 
     payload = context.model_dump()
     filtered_payload = {
-        field: payload.get(field)
-        for field in allowed_fields
-        if field in payload
+        field: payload.get(field) for field in allowed_fields if field in payload
     }
     return EHRPatientContext.model_validate(filtered_payload)
 
