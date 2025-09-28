@@ -47,9 +47,7 @@ class PromptCategory(BaseModel):
     aliases: list[str] = Field(default_factory=list)
 
     @classmethod
-    def from_dataclass(
-        cls, category: PromptEMRDataCategory
-    ) -> "PromptCategory":
+    def from_dataclass(cls, category: PromptEMRDataCategory) -> "PromptCategory":
         """Create a ``PromptCategory`` from ``PromptEMRDataCategory`` metadata."""
 
         return cls(**category.as_dict())
