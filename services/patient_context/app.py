@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, status
 
 from repositories.emr import EMRRepository
 from services.patient_context.mappers import map_patient_context, map_patient_record
