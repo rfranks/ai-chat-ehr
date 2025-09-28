@@ -221,9 +221,9 @@ class DummyClassifierInstance:
     ) -> None:
         self.chain = DummyClassifierChain(response_text=response_text)
         self.parse_calls: list[str] = []
-        self._parsed_result = list(parsed_result) if parsed_result is not None else [
-            "notes"
-        ]
+        self._parsed_result = (
+            list(parsed_result) if parsed_result is not None else ["notes"]
+        )
 
     def parse_response(self, text: str) -> list[str]:
         self.parse_calls.append(text)
@@ -580,7 +580,9 @@ async def test_execute_chain_requests_categories_from_classifier(
     response = result["response"]
     assert response.status_code == 200
 
-    assert result["create_calls"], "Classifier should be instantiated when categories missing"
+    assert result["create_calls"], (
+        "Classifier should be instantiated when categories missing"
+    )
 
     assert patient_client.calls == [
         {"patient_id": "patient-789", "categories": ["notes", "labs"]}
