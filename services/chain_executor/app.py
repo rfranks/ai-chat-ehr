@@ -33,7 +33,11 @@ from shared.llm import (
     resolve_provider,
 )
 from shared.llm.providers import LLMProvider
-from shared.llm.chains import CategoryClassifier, ModelClassifier
+from shared.llm.chains import (
+    CategoryClassifier,
+    DEFAULT_PROMPT_CATEGORIES,
+    ModelClassifier,
+)
 from shared.models.chain import (
     ChainExecutionRequest,
     ChainExecutionResponse,
@@ -196,13 +200,21 @@ class PatientContextClient:
     def __init__(self, http_client: httpx.AsyncClient) -> None:
         self._http = http_client
 
-    async def get_patient_context(self, patient_id: str) -> EHRPatientContext:
+    async def get_patient_context(
+        self, patient_id: str, *, categories: Sequence[str] | None = None
+    ) -> EHRPatientContext:
         normalized = patient_id.strip()
         if not normalized:
             raise PatientContextServiceError("Patient identifier cannot be empty")
 
+        params: list[tuple[str, str]] | None = None
+        if categories:
+            params = [("categories", slug) for slug in categories if slug]
+
         try:
-            response = await self._http.get(f"/patients/{normalized}/context")
+            response = await self._http.get(
+                f"/patients/{normalized}/context", params=params
+            )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:  # pragma: no cover - network failure
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:
@@ -273,14 +285,19 @@ class _ChainExecutionContext:
 
 
 _CATEGORY_CLASSIFICATION_CACHE: dict[str, tuple[str, ...]] = {}
+_KNOWN_CATEGORY_SLUGS: frozenset[str] = frozenset(
+    category.slug for category in DEFAULT_PROMPT_CATEGORIES
+)
 
 
-def _deduplicate_categories(values: Iterable[str]) -> list[str]:
+def _filter_valid_categories(values: Iterable[str]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
     for value in values:
         slug = value.strip()
         if not slug:
+            continue
+        if slug not in _KNOWN_CATEGORY_SLUGS:
             continue
         if slug in seen:
             continue
@@ -312,11 +329,11 @@ def _get_prompt_categories(prompt: ChatPrompt) -> list[str]:
     categories.extend(_normalize_category_source(direct))
     if isinstance(prompt.metadata, Mapping):
         categories.extend(_normalize_category_source(prompt.metadata.get("categories")))
-    return _deduplicate_categories(categories)
+    return _filter_valid_categories(categories)
 
 
 def _set_prompt_categories(prompt: ChatPrompt, categories: Iterable[str]) -> None:
-    normalized = _deduplicate_categories(categories)
+    normalized = _filter_valid_categories(categories)
     if hasattr(prompt, "categories"):
         try:
             setattr(prompt, "categories", list(normalized))
@@ -802,21 +819,6 @@ async def _build_execution_context(
         if legacy_identifier:
             provider_hint = resolve_provider(legacy_identifier)
 
-    patient_context: EHRPatientContext | None = None
-    if payload.patient_id:
-        try:
-            patient_context = await patient_client.get_patient_context(
-                payload.patient_id
-            )
-        except PatientNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-            ) from exc
-        except PatientContextServiceError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-            ) from exc
-
     variables: dict[str, Any] = {
         str(key): value for key, value in payload.variables.items()
     }
@@ -824,23 +826,8 @@ async def _build_execution_context(
     if payload.patient_id:
         variables.setdefault("patient_id", payload.patient_id)
         available_variables.add("patient_id")
-    if patient_context is not None:
-        context_dict = patient_context.model_dump(by_alias=True, exclude_none=True)
-        variables.setdefault("patient_context", context_dict)
-
-        json_ready_context = patient_context.model_dump(
-            mode="json", by_alias=True, exclude_none=True
-        )
-        variables.setdefault(
-            "patient_context_json",
-            json.dumps(json_ready_context, ensure_ascii=False, indent=2),
-        )
-        available_variables.update({"patient_context", "patient_context_json"})
-
-    derived_context = build_context_variables(patient_context)
-    for key, value in derived_context.items():
-        variables.setdefault(key, value)
-    available_variables.update(derived_context.keys())
+    patient_context: EHRPatientContext | None = None
+    request_categories = _filter_valid_categories(payload.categories or [])
 
     resolved_prompts_raw: list[ChatPrompt] = []
     prompt_from_catalog: list[bool] = []
@@ -914,10 +901,60 @@ async def _build_execution_context(
 
     _apply_model_overrides(llm, max_tokens=payload.max_tokens, top_p=payload.top_p)
 
+    category_classifier: CategoryClassifier | None = None
+    prompt_categories: list[str] = []
+    if final_from_catalog:
+        prompt_categories = _filter_valid_categories(_get_prompt_categories(final_prompt))
+
+    final_categories: list[str] = []
+    if prompt_categories:
+        final_categories = prompt_categories
+        _set_prompt_categories(final_prompt, final_categories)
+    elif request_categories:
+        final_categories = request_categories
+        _set_prompt_categories(final_prompt, final_categories)
+    else:
+        category_classifier = await _ensure_prompt_categories(
+            final_prompt, llm, category_classifier
+        )
+        final_categories = _filter_valid_categories(_get_prompt_categories(final_prompt))
+
+    if payload.patient_id:
+        try:
+            patient_context = await patient_client.get_patient_context(
+                payload.patient_id,
+                categories=final_categories or None,
+            )
+        except PatientNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            ) from exc
+        except PatientContextServiceError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+            ) from exc
+
+    if patient_context is not None:
+        context_dict = patient_context.model_dump(by_alias=True, exclude_none=True)
+        variables.setdefault("patient_context", context_dict)
+
+        json_ready_context = patient_context.model_dump(
+            mode="json", by_alias=True, exclude_none=True
+        )
+        variables.setdefault(
+            "patient_context_json",
+            json.dumps(json_ready_context, ensure_ascii=False, indent=2),
+        )
+        available_variables.update({"patient_context", "patient_context_json"})
+
+    derived_context = build_context_variables(patient_context)
+    for key, value in derived_context.items():
+        variables.setdefault(key, value)
+    available_variables.update(derived_context.keys())
+
     used_output_keys: set[str] = set()
     resolved_prompts: list[_ResolvedPrompt] = []
     steps: list[ChainStepResult] = []
-    category_classifier: CategoryClassifier | None = None
 
     for index, prompt in enumerate(resolved_prompts_raw):
         category_classifier = await _ensure_prompt_categories(

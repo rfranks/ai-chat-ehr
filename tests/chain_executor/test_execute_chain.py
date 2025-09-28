@@ -4,7 +4,7 @@ import sys
 import types
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Dict, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from shared.llm.prompt_builder import PromptTemplateSpec as PromptTemplateSpecType
@@ -153,7 +153,7 @@ class DummyPatientContextClient:
     """Stub patient context client that should never be invoked."""
 
     async def get_patient_context(
-        self, patient_id: str
+        self, patient_id: str, *, categories: Sequence[str] | None = None
     ) -> Any:  # pragma: no cover - defensive
         raise AssertionError("Patient context lookup was not expected during this test")
 
@@ -202,30 +202,43 @@ class DummyClassifierChain:
 
     output_key = "categories"
 
-    def __init__(self) -> None:
+    def __init__(self, response_text: str = '["notes"]') -> None:
         self.calls: list[Dict[str, Any]] = []
+        self._response_text = response_text
 
     async def ainvoke(self, variables: Dict[str, Any]) -> Dict[str, Any]:
         self.calls.append(dict(variables))
-        return {self.output_key: '["general_reasoning"]'}
+        return {self.output_key: self._response_text}
 
 
 class DummyClassifierInstance:
     """Classifier stub returning a fixed category assignment."""
 
-    def __init__(self) -> None:
-        self.chain = DummyClassifierChain()
+    def __init__(
+        self,
+        response_text: str = '["notes"]',
+        parsed_result: Sequence[str] | None = None,
+    ) -> None:
+        self.chain = DummyClassifierChain(response_text=response_text)
         self.parse_calls: list[str] = []
+        self._parsed_result = list(parsed_result) if parsed_result is not None else [
+            "notes"
+        ]
 
     def parse_response(self, text: str) -> list[str]:
         self.parse_calls.append(text)
-        return ["general_reasoning"]
+        return list(self._parsed_result)
 
 
-@pytest.mark.anyio
-async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
+async def _execute_chain_request(
     monkeypatch: pytest.MonkeyPatch,
-) -> None:
+    prompt_definition: Any,
+    payload: dict[str, Any],
+    *,
+    classifier_response_text: str = '["notes"]',
+    classifier_parsed_result: Sequence[str] | None = None,
+    patient_client: Any | None = None,
+) -> dict[str, Any]:
     chain_app = importlib.import_module("services.chain_executor.app")
     chat_models = importlib.import_module("shared.models.chat")
     prompt_builder = importlib.import_module("shared.llm.prompt_builder")
@@ -240,7 +253,6 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
         def __init__(self, text: str) -> None:
             self._text = text
             pattern = re.compile(r"{([^{}]+)}")
-            # Preserve declaration order while removing duplicates.
             self.input_variables = tuple(dict.fromkeys(pattern.findall(text)))
 
         def format(self, **variables: Any) -> str:
@@ -248,9 +260,7 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
                 return self._text
             return self._text.format(**variables)
 
-    def fake_build_prompt_template(
-        prompt: Any,
-    ) -> PromptTemplateSpecType:
+    def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpecType:
         text = (getattr(prompt, "template", "") or "").strip()
         if not text:
             raise MissingPromptTemplateError(
@@ -276,7 +286,10 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     def fake_classifier_create(
         cls, llm: Any, categories: Any = None
     ) -> DummyClassifierInstance:
-        instance = DummyClassifierInstance()
+        instance = DummyClassifierInstance(
+            response_text=classifier_response_text,
+            parsed_result=classifier_parsed_result,
+        )
         classifier_instances.append(instance)
         create_calls.append({"llm": llm, "categories": categories})
         return instance
@@ -295,21 +308,15 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
 
     monkeypatch.setattr(chain_app, "_classify_model_slug", fake_model_classifier)
 
-    prompt_definition = ChatPrompt(
-        key=ChatPromptKey.PATIENT_SUMMARY,
-        template="Patient summary: {symptom}",
-        input_variables=["symptom"],
-        metadata={},
-    )
     prompt_client = DummyPromptCatalogClient(prompt_definition)
-    patient_client = DummyPatientContextClient()
+    patient_client = patient_client or DummyPatientContextClient()
 
     app = chain_app.get_app()
 
     async def _prompt_client_override() -> DummyPromptCatalogClient:
         return prompt_client
 
-    async def _patient_client_override() -> DummyPatientContextClient:
+    async def _patient_client_override() -> Any:
         return patient_client
 
     app.dependency_overrides[chain_app.get_prompt_catalog_client] = (
@@ -318,12 +325,6 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     app.dependency_overrides[chain_app.get_patient_context_client] = (
         _patient_client_override
     )
-
-    payload = {
-        "chain": [{"promptEnum": "PATIENT_SUMMARY"}],
-        "variables": {"symptom": "persistent cough"},
-        "modelProvider": "openai/gpt-3.5-turbo",
-    }
 
     transport = ASGITransport(app=app)
     try:
@@ -336,6 +337,43 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
         app.dependency_overrides.pop(chain_app.get_patient_context_client, None)
         await transport.aclose()
 
+    return {
+        "response": response,
+        "prompt_client": prompt_client,
+        "llm": dummy_llm,
+        "classifier_instances": classifier_instances,
+        "create_calls": create_calls,
+        "model_classifier_calls": model_classifier_calls,
+        "patient_client": patient_client,
+        "ChatPrompt": ChatPrompt,
+        "ChatPromptKey": ChatPromptKey,
+    }
+
+
+@pytest.mark.anyio
+async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat_models = importlib.import_module("shared.models.chat")
+    ChatPrompt = chat_models.ChatPrompt
+    ChatPromptKey = chat_models.ChatPromptKey
+
+    prompt_definition = ChatPrompt(
+        key=ChatPromptKey.PATIENT_SUMMARY,
+        template="Patient summary: {symptom}",
+        input_variables=["symptom"],
+        metadata={},
+    )
+
+    payload = {
+        "chain": [{"promptEnum": "PATIENT_SUMMARY"}],
+        "variables": {"symptom": "persistent cough"},
+        "modelProvider": "openai/gpt-3.5-turbo",
+    }
+
+    result = await _execute_chain_request(monkeypatch, prompt_definition, payload)
+    response = result["response"]
+
     assert response.status_code == 200
     body = response.json()
 
@@ -347,25 +385,210 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     assert body["outputs"] == {"patient_summary": expected_output}
     assert body["steps"][0]["prompt"]["template"] == "Patient summary: {symptom}"
 
+    prompt_client = result["prompt_client"]
     assert prompt_client.calls, "Prompt catalog client was not invoked"
     assert prompt_client.calls[0] == ChatPromptKey.PATIENT_SUMMARY
 
+    dummy_llm = result["llm"]
     assert len(dummy_llm.calls) == 1
     llm_call = dummy_llm.calls[0]
     assert llm_call["prompt"] == expected_prompt
     assert llm_call["output_key"] == "patient_summary"
     assert llm_call["variables"]["symptom"] == "persistent cough"
 
+    create_calls = result["create_calls"]
+    classifier_instances = result["classifier_instances"]
     assert create_calls, "Category classifier was not instantiated"
     classifier = classifier_instances[0]
     assert classifier.chain.calls, "Classifier chain was not executed"
     assert "prompt_json" in classifier.chain.calls[0]
-    assert classifier.parse_calls == ['["general_reasoning"]']
+    assert classifier.parse_calls == ['["notes"]']
 
-    assert model_classifier_calls, "Model classifier was not invoked"
+    assert result["model_classifier_calls"], "Model classifier was not invoked"
 
     step_metadata = body["steps"][0]["prompt"].get("metadata", {})
-    assert step_metadata.get("categories") == ["general_reasoning"]
+    assert step_metadata.get("categories") == ["notes"]
+
+
+@pytest.mark.anyio
+async def test_execute_chain_prefers_prompt_categories_for_patient_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat_models = importlib.import_module("shared.models.chat")
+    ChatPrompt = chat_models.ChatPrompt
+    ChatPromptKey = chat_models.ChatPromptKey
+    EHRPatientContext = chat_models.EHRPatientContext
+
+    class RecordingPatientClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def get_patient_context(
+            self, patient_id: str, *, categories: Sequence[str] | None = None
+        ) -> EHRPatientContext:
+            self.calls.append(
+                {
+                    "patient_id": patient_id,
+                    "categories": list(categories) if categories is not None else None,
+                }
+            )
+            return EHRPatientContext()
+
+    patient_client = RecordingPatientClient()
+
+    prompt_definition = ChatPrompt(
+        key=ChatPromptKey.PATIENT_SUMMARY,
+        template="Summary: {symptom}",
+        input_variables=["symptom"],
+        metadata={"categories": ["labs", "invalid", "notes"]},
+    )
+
+    payload = {
+        "chain": [{"promptEnum": "PATIENT_SUMMARY"}],
+        "variables": {"symptom": "fatigue"},
+        "modelProvider": "openai/gpt-3.5-turbo",
+        "patientId": "patient-123",
+        "categories": ["vitals", "medications"],
+    }
+
+    result = await _execute_chain_request(
+        monkeypatch, prompt_definition, payload, patient_client=patient_client
+    )
+
+    response = result["response"]
+    assert response.status_code == 200
+
+    assert result["create_calls"] == []
+
+    assert patient_client.calls == [
+        {"patient_id": "patient-123", "categories": ["labs", "notes"]}
+    ]
+
+    body = response.json()
+    step_metadata = body["steps"][0]["prompt"].get("metadata", {})
+    assert step_metadata.get("categories") == ["labs", "notes"]
+
+
+@pytest.mark.anyio
+async def test_execute_chain_uses_request_categories_when_prompt_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat_models = importlib.import_module("shared.models.chat")
+    ChatPrompt = chat_models.ChatPrompt
+    ChatPromptKey = chat_models.ChatPromptKey
+    EHRPatientContext = chat_models.EHRPatientContext
+
+    class RecordingPatientClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def get_patient_context(
+            self, patient_id: str, *, categories: Sequence[str] | None = None
+        ) -> EHRPatientContext:
+            self.calls.append(
+                {
+                    "patient_id": patient_id,
+                    "categories": list(categories) if categories is not None else None,
+                }
+            )
+            return EHRPatientContext()
+
+    patient_client = RecordingPatientClient()
+
+    prompt_definition = ChatPrompt(
+        key=ChatPromptKey.PATIENT_SUMMARY,
+        template="Summary: {symptom}",
+        input_variables=["symptom"],
+        metadata={},
+    )
+
+    payload = {
+        "chain": [{"promptEnum": "PATIENT_SUMMARY"}],
+        "variables": {"symptom": "fatigue"},
+        "modelProvider": "openai/gpt-3.5-turbo",
+        "patientId": "patient-456",
+        "categories": ["vitals", "unknown", "medications"],
+    }
+
+    result = await _execute_chain_request(
+        monkeypatch, prompt_definition, payload, patient_client=patient_client
+    )
+
+    response = result["response"]
+    assert response.status_code == 200
+
+    assert result["create_calls"] == []
+
+    assert patient_client.calls == [
+        {"patient_id": "patient-456", "categories": ["vitals", "medications"]}
+    ]
+
+    body = response.json()
+    step_metadata = body["steps"][0]["prompt"].get("metadata", {})
+    assert step_metadata.get("categories") == ["vitals", "medications"]
+
+
+@pytest.mark.anyio
+async def test_execute_chain_requests_categories_from_classifier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat_models = importlib.import_module("shared.models.chat")
+    ChatPrompt = chat_models.ChatPrompt
+    ChatPromptKey = chat_models.ChatPromptKey
+    EHRPatientContext = chat_models.EHRPatientContext
+
+    class RecordingPatientClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def get_patient_context(
+            self, patient_id: str, *, categories: Sequence[str] | None = None
+        ) -> EHRPatientContext:
+            self.calls.append(
+                {
+                    "patient_id": patient_id,
+                    "categories": list(categories) if categories is not None else None,
+                }
+            )
+            return EHRPatientContext()
+
+    patient_client = RecordingPatientClient()
+
+    prompt_definition = ChatPrompt(
+        key=ChatPromptKey.PATIENT_SUMMARY,
+        template="Summary: {symptom}",
+        input_variables=["symptom"],
+        metadata={},
+    )
+
+    payload = {
+        "chain": [{"promptEnum": "PATIENT_SUMMARY"}],
+        "variables": {"symptom": "fatigue"},
+        "modelProvider": "openai/gpt-3.5-turbo",
+        "patientId": "patient-789",
+    }
+
+    result = await _execute_chain_request(
+        monkeypatch,
+        prompt_definition,
+        payload,
+        patient_client=patient_client,
+        classifier_response_text='["notes", "labs"]',
+        classifier_parsed_result=["notes", "labs"],
+    )
+
+    response = result["response"]
+    assert response.status_code == 200
+
+    assert result["create_calls"], "Classifier should be instantiated when categories missing"
+
+    assert patient_client.calls == [
+        {"patient_id": "patient-789", "categories": ["notes", "labs"]}
+    ]
+
+    body = response.json()
+    step_metadata = body["steps"][0]["prompt"].get("metadata", {})
+    assert step_metadata.get("categories") == ["notes", "labs"]
 
 
 @pytest.mark.anyio

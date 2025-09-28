@@ -47,6 +47,12 @@ class ChainExecutionRequest(CamelModel):
     patient_id: Optional[str] = Field(
         default=None, description="Optional patient identifier for context retrieval"
     )
+    categories: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Optional EMR data categories to request from the patient context service"
+        ),
+    )
     variables: dict[str, Any] = Field(
         default_factory=dict,
         description="Initial variables supplied to the chain for template rendering",
