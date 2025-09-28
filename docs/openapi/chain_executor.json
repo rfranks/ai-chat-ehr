@@ -2015,6 +2015,96 @@
         },
         "title": "VitalSign",
         "type": "object"
+      },
+      "ChainExecutorModelSpec": {
+        "description": "Serialized representation of a model specification.",
+        "properties": {
+          "aliases": {
+            "default": [],
+            "description": "Ordered list of accepted aliases for the model.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "canonical_name": {
+            "description": "Canonical model name for the provider configuration.",
+            "title": "Canonical Name",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human readable model description.",
+            "title": "Description"
+          },
+          "provider": {
+            "description": "Canonical provider identifier value.",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "canonical_name"
+        ],
+        "title": "ChainExecutorModelSpec",
+        "type": "object"
+      },
+      "ChainExecutorModelsResponse": {
+        "description": "Response payload returned by the models discovery endpoint.",
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ChainExecutorModelSpec"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ChainExecutorServiceMetadata"
+          }
+        },
+        "required": [
+          "service",
+          "models"
+        ],
+        "title": "ChainExecutorModelsResponse",
+        "type": "object"
+      },
+      "ChainExecutorServiceMetadata": {
+        "description": "Describes metadata for the chain executor service.",
+        "properties": {
+          "default_model_name": {
+            "description": "Configured default provider-specific model name.",
+            "title": "Default Model Name",
+            "type": "string"
+          },
+          "default_model_provider": {
+            "description": "Configured default model provider identifier.",
+            "title": "Default Model Provider",
+            "type": "string"
+          },
+          "name": {
+            "description": "Logical name of the service.",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "default_model_provider",
+          "default_model_name"
+        ],
+        "title": "ChainExecutorServiceMetadata",
+        "type": "object"
       }
     }
   },
@@ -2024,6 +2114,38 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/chains/models": {
+      "get": {
+        "description": "Return metadata for available language model providers.",
+        "operationId": "list_models_chains_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainExecutorModelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Models",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
     "/chains/execute": {
       "post": {
         "description": "Execute a sequence of prompts using the configured language model provider.",
