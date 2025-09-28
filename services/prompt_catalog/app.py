@@ -63,6 +63,12 @@ class PromptSearchRequest(BaseModel):
     key: ChatPromptKey | None = Field(
         default=None, description="Optional canonical prompt key to filter by."
     )
+    categories: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional list of category slugs that prompts must intersect to be returned."
+        ),
+    )
     limit: int = Field(
         default=20,
         ge=1,
@@ -117,6 +123,7 @@ async def search_prompts(
     results = await repository.search_prompts(
         query=payload.query,
         key=payload.key,
+        categories=payload.categories,
         limit=payload.limit,
     )
     return PromptSearchResponse(results=results)

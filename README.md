@@ -94,6 +94,12 @@ services:
   ```bash
   curl http://localhost:8001/prompts | jq
   ```
+* Filter prompts by category slug (case-insensitive) or combine with free-text query terms:
+  ```bash
+  curl -X POST http://localhost:8001/prompts/search \
+    -H "Content-Type: application/json" \
+    -d '{"categories": ["labs"], "query": "plan"}' | jq
+  ```
 * Discover the canonical prompt categories exposed by the catalog service:
   ```bash
   curl http://localhost:8001/categories | jq
