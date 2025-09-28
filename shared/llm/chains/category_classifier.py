@@ -52,7 +52,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("demographics", "details", "patientInfo", "identity"),
     ),
-
     # — Labs / tests / vitals / notes (existing, tightened) —
     PromptEMRDataCategory(
         slug="labs",
@@ -72,7 +71,16 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         echocardiograms, ECGs, pathology reports, and other procedural narratives.
         Include key findings, impressions, measurements, and dates/times.
         """,
-        aliases=("test", "tests", "procedure", "procedures", "imagingResults", "echo", "ecg", "pathology"),
+        aliases=(
+            "test",
+            "tests",
+            "procedure",
+            "procedures",
+            "imagingResults",
+            "echo",
+            "ecg",
+            "pathology",
+        ),
     ),
     PromptEMRDataCategory(
         slug="vitals",
@@ -92,7 +100,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("documentation", "clinical_notes", "clinicalNotes", "narratives"),
     ),
-
     # — Medications & medication administrations —
     PromptEMRDataCategory(
         slug="medications",
@@ -114,7 +121,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("mar", "administrations", "medAdmin", "infusions", "drips"),
     ),
-
     # — Orders & orderables —
     PromptEMRDataCategory(
         slug="orders",
@@ -126,7 +132,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("cpoe", "physicianOrders", "nursingOrders", "order", "orderSet"),
     ),
-
     # — Allergies / intolerances —
     PromptEMRDataCategory(
         slug="allergies",
@@ -137,7 +142,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("allergy", "intolerances", "drugAllergy", "hypersensitivity"),
     ),
-
     # — Problem list / diagnoses —
     PromptEMRDataCategory(
         slug="problems",
@@ -148,7 +152,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("diagnoses", "dx", "problemList", "conditions"),
     ),
-
     # — Past medical/surgical/family/social history —
     PromptEMRDataCategory(
         slug="pastHistory",
@@ -177,7 +180,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("shx", "socialHx", "sdoh", "lifestyle"),
     ),
-
     # — Immunizations —
     PromptEMRDataCategory(
         slug="immunizations",
@@ -188,7 +190,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("vaccines", "shots", "imms"),
     ),
-
     # — Encounters / admissions / locations —
     PromptEMRDataCategory(
         slug="encounters",
@@ -199,7 +200,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("visits", "admissions", "discharges", "encounterHistory"),
     ),
-
     # — Care team —
     PromptEMRDataCategory(
         slug="careTeam",
@@ -210,7 +210,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("providers", "team", "careProviders"),
     ),
-
     # — Procedures actually performed (separate from order or result) —
     PromptEMRDataCategory(
         slug="procedures",
@@ -221,7 +220,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("procedureHistory", "ops", "surgeries"),
     ),
-
     # — Lines / drains / airways —
     PromptEMRDataCategory(
         slug="linesDrainsAirways",
@@ -232,7 +230,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("lda", "lines", "drains", "airways", "catheters", "tubes"),
     ),
-
     # — Intake & Output —
     PromptEMRDataCategory(
         slug="intakeOutput",
@@ -243,7 +240,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("io", "i&o", "fluidBalance"),
     ),
-
     # — Flowsheets & scores —
     PromptEMRDataCategory(
         slug="flowsheets",
@@ -254,7 +250,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("flowsheet", "scores", "assessments", "scales"),
     ),
-
     # — Microbiology (often needs more detail than generic labs) —
     PromptEMRDataCategory(
         slug="microbiology",
@@ -265,7 +260,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("micro", "cultures", "sensitivities", "antibiogram"),
     ),
-
     # — Pathology (separate for clarity) —
     PromptEMRDataCategory(
         slug="pathology",
@@ -276,7 +270,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("path", "biopsy", "cytology", "surgicalPath"),
     ),
-
     # — Imaging media/links (not just reports) —
     PromptEMRDataCategory(
         slug="radiologyMedia",
@@ -287,7 +280,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("imaging", "dicom", "pacs", "imageLinks"),
     ),
-
     # — Genomics / molecular —
     PromptEMRDataCategory(
         slug="genomics",
@@ -298,7 +290,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("genetics", "molecular", "pgx", "precisionMedicine"),
     ),
-
     # — Risk scores / calculators —
     PromptEMRDataCategory(
         slug="riskScores",
@@ -309,7 +300,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("scores", "risk", "calculators", "severity"),
     ),
-
     # — Care plans / goals —
     PromptEMRDataCategory(
         slug="carePlans",
@@ -320,7 +310,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("planOfCare", "poc", "goals", "carePathways"),
     ),
-
     # — Advance directives / code status —
     PromptEMRDataCategory(
         slug="advanceDirectives",
@@ -331,7 +320,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("codeStatus", "directives", "polst", "molst"),
     ),
-
     # — Nutrition / diet —
     PromptEMRDataCategory(
         slug="nutrition",
@@ -342,7 +330,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("diet", "tpn", "tubeFeeds", "enteral", "parenteral"),
     ),
-
     # — Respiratory support —
     PromptEMRDataCategory(
         slug="respiratorySupport",
@@ -353,7 +340,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("ventilation", "oxygen", "ventSettings", "cpap", "bipap", "hfnc"),
     ),
-
     # — Wounds / skin —
     PromptEMRDataCategory(
         slug="woundCare",
@@ -364,7 +350,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("wounds", "skin", "pressureInjury", "ulcers", "burns"),
     ),
-
     # — Therapies & rehabilitation —
     PromptEMRDataCategory(
         slug="therapies",
@@ -375,7 +360,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("pt", "ot", "slp", "rehab", "therapy"),
     ),
-
     # — Consults & referrals (requests + responses) —
     PromptEMRDataCategory(
         slug="consults",
@@ -386,7 +370,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("referrals", "specialtyConsults", "consultRequests"),
     ),
-
     # — Scheduling / follow-ups —
     PromptEMRDataCategory(
         slug="scheduling",
@@ -397,7 +380,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("appointments", "schedule", "followUp", "bookings"),
     ),
-
     # — Insurance / billing (often needed for disposition/questions) —
     PromptEMRDataCategory(
         slug="insurance",
@@ -416,7 +398,6 @@ DEFAULT_PROMPT_CATEGORIES: tuple[PromptEMRDataCategory, ...] = (
         """,
         aliases=("coding", "charges", "claims", "revenueCycle"),
     ),
-
     # — Communication / consents / education —
     PromptEMRDataCategory(
         slug="communications",

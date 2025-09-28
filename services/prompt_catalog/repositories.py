@@ -80,6 +80,16 @@ class PromptRepository:
             parts.append(prompt.description)
         if prompt.template:
             parts.append(prompt.template)
+        if prompt.metadata:
+            for value in prompt.metadata.values():
+                if value is None:
+                    continue
+                if isinstance(value, str):
+                    normalized = value
+                else:
+                    normalized = str(value)
+                if normalized:
+                    parts.append(normalized)
         haystack = " ".join(parts).lower()
         return query in haystack
 
