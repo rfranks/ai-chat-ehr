@@ -1,10 +1,146 @@
 {
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Patient Context Service",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "description": "Return a simple health payload for orchestration checks.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patient_id}/context": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Read Patient Context",
+        "description": "Return the chat-oriented patient context for ``patient_id``.",
+        "operationId": "read_patient_context_patients__patient_id__context_get",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Unique identifier for the patient",
+              "title": "Patient Id"
+            },
+            "description": "Unique identifier for the patient"
+          },
+          {
+            "name": "categories",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional list of category slugs used to filter the patient context payload",
+              "title": "Categories"
+            },
+            "description": "Optional list of category slugs used to filter the patient context payload"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EHRPatientContext"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patient_id}": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Read Patient Record",
+        "description": "Return the normalized patient record for ``patient_id``.",
+        "operationId": "read_patient_record_patients__patient_id__get",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Unique identifier for the patient",
+              "title": "Patient Id"
+            },
+            "description": "Unique identifier for the patient"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "components": {
     "schemas": {
       "Allergy": {
-        "description": "Allergy or intolerance record.",
         "properties": {
-          "comments": {
+          "substance": {
             "anyOf": [
               {
                 "type": "string"
@@ -13,19 +149,7 @@
                 "type": "null"
               }
             ],
-            "title": "Comments"
-          },
-          "notedDate": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Noteddate"
+            "title": "Substance"
           },
           "reaction": {
             "anyOf": [
@@ -60,7 +184,19 @@
             ],
             "title": "Status"
           },
-          "substance": {
+          "notedDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Noteddate"
+          },
+          "comments": {
             "anyOf": [
               {
                 "type": "string"
@@ -69,15 +205,26 @@
                 "type": "null"
               }
             ],
-            "title": "Substance"
+            "title": "Comments"
           }
         },
+        "type": "object",
         "title": "Allergy",
-        "type": "object"
+        "description": "Allergy or intolerance record."
       },
       "CarePlanItem": {
-        "description": "Entries in a care plan or set of recommendations.",
         "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "description": {
             "anyOf": [
               {
@@ -88,18 +235,6 @@
               }
             ],
             "title": "Description"
-          },
-          "due": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Due"
           },
           "status": {
             "anyOf": [
@@ -112,35 +247,25 @@
             ],
             "title": "Status"
           },
-          "title": {
+          "due": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "format": "date-time"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Title"
+            "title": "Due"
           }
         },
+        "type": "object",
         "title": "CarePlanItem",
-        "type": "object"
+        "description": "Entries in a care plan or set of recommendations."
       },
       "CareTeamMember": {
-        "description": "Care team participants.",
         "properties": {
-          "contact": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contact"
-          },
           "name": {
             "anyOf": [
               {
@@ -151,6 +276,17 @@
               }
             ],
             "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
           },
           "organization": {
             "anyOf": [
@@ -163,7 +299,7 @@
             ],
             "title": "Organization"
           },
-          "role": {
+          "contact": {
             "anyOf": [
               {
                 "type": "string"
@@ -172,60 +308,15 @@
                 "type": "null"
               }
             ],
-            "title": "Role"
+            "title": "Contact"
           }
         },
+        "type": "object",
         "title": "CareTeamMember",
-        "type": "object"
+        "description": "Care team participants."
       },
       "ClinicalDocument": {
-        "description": "Structured clinical documents linked to the record.",
         "properties": {
-          "author": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Author"
-          },
-          "category": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Category"
-          },
-          "content": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content"
-          },
-          "createdAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Createdat"
-          },
           "documentId": {
             "anyOf": [
               {
@@ -248,7 +339,7 @@
             ],
             "title": "Title"
           },
-          "url": {
+          "category": {
             "anyOf": [
               {
                 "type": "string"
@@ -257,15 +348,20 @@
                 "type": "null"
               }
             ],
-            "title": "Url"
-          }
-        },
-        "title": "ClinicalDocument",
-        "type": "object"
-      },
-      "ClinicalNote": {
-        "description": "Clinical note metadata and content.",
-        "properties": {
+            "title": "Category"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
           "author": {
             "anyOf": [
               {
@@ -288,18 +384,24 @@
             ],
             "title": "Content"
           },
-          "createdAt": {
+          "url": {
             "anyOf": [
               {
-                "format": "date-time",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Createdat"
-          },
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "title": "ClinicalDocument",
+        "description": "Structured clinical documents linked to the record."
+      },
+      "ClinicalNote": {
+        "properties": {
           "noteId": {
             "anyOf": [
               {
@@ -310,6 +412,17 @@
               }
             ],
             "title": "Noteid"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "noteType": {
             "anyOf": [
@@ -322,7 +435,19 @@
             ],
             "title": "Notetype"
           },
-          "title": {
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "author": {
             "anyOf": [
               {
                 "type": "string"
@@ -331,72 +456,26 @@
                 "type": "null"
               }
             ],
-            "title": "Title"
+            "title": "Author"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
           }
         },
+        "type": "object",
         "title": "ClinicalNote",
-        "type": "object"
+        "description": "Clinical note metadata and content."
       },
       "EHRPatientContext": {
-        "description": "Patient context payload curated for chat workflows.",
         "properties": {
-          "additionalNotes": {
-            "items": {
-              "$ref": "#/components/schemas/ClinicalNote"
-            },
-            "title": "Additionalnotes",
-            "type": "array"
-          },
-          "allergies": {
-            "items": {
-              "$ref": "#/components/schemas/Allergy"
-            },
-            "title": "Allergies",
-            "type": "array"
-          },
-          "assessment": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assessment"
-          },
-          "careTeam": {
-            "items": {
-              "$ref": "#/components/schemas/CareTeamMember"
-            },
-            "title": "Careteam",
-            "type": "array"
-          },
-          "chiefComplaint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Chiefcomplaint"
-          },
-          "clinicalDocuments": {
-            "items": {
-              "$ref": "#/components/schemas/ClinicalDocument"
-            },
-            "title": "Clinicaldocuments",
-            "type": "array"
-          },
-          "clinicalNotes": {
-            "items": {
-              "$ref": "#/components/schemas/ClinicalNote"
-            },
-            "title": "Clinicalnotes",
-            "type": "array"
-          },
           "demographics": {
             "anyOf": [
               {
@@ -411,29 +490,110 @@
             "items": {
               "$ref": "#/components/schemas/Encounter"
             },
-            "title": "Encounters",
-            "type": "array"
+            "type": "array",
+            "title": "Encounters"
+          },
+          "medications": {
+            "items": {
+              "$ref": "#/components/schemas/Medication"
+            },
+            "type": "array",
+            "title": "Medications"
+          },
+          "allergies": {
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            },
+            "type": "array",
+            "title": "Allergies"
+          },
+          "procedures": {
+            "items": {
+              "$ref": "#/components/schemas/Procedure"
+            },
+            "type": "array",
+            "title": "Procedures"
+          },
+          "imaging": {
+            "items": {
+              "$ref": "#/components/schemas/ImagingStudy"
+            },
+            "type": "array",
+            "title": "Imaging"
+          },
+          "immunizations": {
+            "items": {
+              "$ref": "#/components/schemas/Immunization"
+            },
+            "type": "array",
+            "title": "Immunizations"
+          },
+          "labResults": {
+            "items": {
+              "$ref": "#/components/schemas/LabResult"
+            },
+            "type": "array",
+            "title": "Labresults"
+          },
+          "vitalSigns": {
+            "items": {
+              "$ref": "#/components/schemas/VitalSign"
+            },
+            "type": "array",
+            "title": "Vitalsigns"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "clinicalNotes": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicalNote"
+            },
+            "type": "array",
+            "title": "Clinicalnotes"
+          },
+          "clinicalDocuments": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicalDocument"
+            },
+            "type": "array",
+            "title": "Clinicaldocuments"
+          },
+          "careTeam": {
+            "items": {
+              "$ref": "#/components/schemas/CareTeamMember"
+            },
+            "type": "array",
+            "title": "Careteam"
+          },
+          "socialHistory": {
+            "items": {
+              "$ref": "#/components/schemas/SocialHistoryItem"
+            },
+            "type": "array",
+            "title": "Socialhistory"
           },
           "familyHistory": {
             "items": {
               "$ref": "#/components/schemas/FamilyHistoryItem"
             },
-            "title": "Familyhistory",
-            "type": "array"
+            "type": "array",
+            "title": "Familyhistory"
           },
-          "followUpActions": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Followupactions",
-            "type": "array"
-          },
-          "goals": {
-            "items": {
-              "$ref": "#/components/schemas/CarePlanItem"
-            },
-            "title": "Goals",
-            "type": "array"
+          "chiefComplaint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chiefcomplaint"
           },
           "historyOfPresentIllness": {
             "anyOf": [
@@ -446,33 +606,16 @@
             ],
             "title": "Historyofpresentillness"
           },
-          "imaging": {
-            "items": {
-              "$ref": "#/components/schemas/ImagingStudy"
-            },
-            "title": "Imaging",
-            "type": "array"
-          },
-          "immunizations": {
-            "items": {
-              "$ref": "#/components/schemas/Immunization"
-            },
-            "title": "Immunizations",
-            "type": "array"
-          },
-          "labResults": {
-            "items": {
-              "$ref": "#/components/schemas/LabResult"
-            },
-            "title": "Labresults",
-            "type": "array"
-          },
-          "medications": {
-            "items": {
-              "$ref": "#/components/schemas/Medication"
-            },
-            "title": "Medications",
-            "type": "array"
+          "assessment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
           },
           "plan": {
             "anyOf": [
@@ -485,40 +628,33 @@
             ],
             "title": "Plan"
           },
-          "problems": {
+          "goals": {
             "items": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/CarePlanItem"
             },
-            "title": "Problems",
-            "type": "array"
+            "type": "array",
+            "title": "Goals"
           },
-          "procedures": {
+          "followUpActions": {
             "items": {
-              "$ref": "#/components/schemas/Procedure"
+              "type": "string"
             },
-            "title": "Procedures",
-            "type": "array"
+            "type": "array",
+            "title": "Followupactions"
           },
-          "socialHistory": {
+          "additionalNotes": {
             "items": {
-              "$ref": "#/components/schemas/SocialHistoryItem"
+              "$ref": "#/components/schemas/ClinicalNote"
             },
-            "title": "Socialhistory",
-            "type": "array"
-          },
-          "vitalSigns": {
-            "items": {
-              "$ref": "#/components/schemas/VitalSign"
-            },
-            "title": "Vitalsigns",
-            "type": "array"
+            "type": "array",
+            "title": "Additionalnotes"
           }
         },
+        "type": "object",
         "title": "EHRPatientContext",
-        "type": "object"
+        "description": "Patient context payload curated for chat workflows."
       },
       "Encounter": {
-        "description": "Basic information about a clinical encounter.",
         "properties": {
           "encounterId": {
             "anyOf": [
@@ -531,11 +667,45 @@
             ],
             "title": "Encounterid"
           },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
           "end": {
             "anyOf": [
               {
-                "format": "date-time",
-                "type": "string"
+                "type": "string",
+                "format": "date-time"
               },
               {
                 "type": "null"
@@ -554,17 +724,6 @@
             ],
             "title": "Location"
           },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
           "provider": {
             "anyOf": [
               {
@@ -576,29 +735,6 @@
             ],
             "title": "Provider"
           },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "start": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start"
-          },
           "status": {
             "anyOf": [
               {
@@ -609,35 +745,6 @@
               }
             ],
             "title": "Status"
-          },
-          "type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Type"
-          }
-        },
-        "title": "Encounter",
-        "type": "object"
-      },
-      "FamilyHistoryItem": {
-        "description": "Family history item.",
-        "properties": {
-          "condition": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Condition"
           },
           "notes": {
             "anyOf": [
@@ -649,7 +756,14 @@
               }
             ],
             "title": "Notes"
-          },
+          }
+        },
+        "type": "object",
+        "title": "Encounter",
+        "description": "Basic information about a clinical encounter."
+      },
+      "FamilyHistoryItem": {
+        "properties": {
           "relationship": {
             "anyOf": [
               {
@@ -661,6 +775,17 @@
             ],
             "title": "Relationship"
           },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
           "status": {
             "anyOf": [
               {
@@ -671,10 +796,22 @@
               }
             ],
             "title": "Status"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
           }
         },
+        "type": "object",
         "title": "FamilyHistoryItem",
-        "type": "object"
+        "description": "Family history item."
       },
       "HTTPValidationError": {
         "properties": {
@@ -682,16 +819,49 @@
             "items": {
               "$ref": "#/components/schemas/ValidationError"
             },
-            "title": "Detail",
-            "type": "array"
+            "type": "array",
+            "title": "Detail"
           }
         },
-        "title": "HTTPValidationError",
-        "type": "object"
+        "type": "object",
+        "title": "HTTPValidationError"
       },
       "ImagingStudy": {
-        "description": "Summary details from imaging studies.",
         "properties": {
+          "modality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modality"
+          },
+          "study": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study"
+          },
+          "performedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performedat"
+          },
           "findings": {
             "anyOf": [
               {
@@ -713,53 +883,30 @@
               }
             ],
             "title": "Impression"
-          },
-          "modality": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modality"
-          },
-          "performedAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Performedat"
-          },
-          "study": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Study"
           }
         },
+        "type": "object",
         "title": "ImagingStudy",
-        "type": "object"
+        "description": "Summary details from imaging studies."
       },
       "Immunization": {
-        "description": "Immunization history details.",
         "properties": {
+          "vaccine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vaccine"
+          },
           "date": {
             "anyOf": [
               {
-                "format": "date-time",
-                "type": "string"
+                "type": "string",
+                "format": "date-time"
               },
               {
                 "type": "null"
@@ -778,17 +925,6 @@
             ],
             "title": "Lotnumber"
           },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
           "status": {
             "anyOf": [
               {
@@ -800,7 +936,7 @@
             ],
             "title": "Status"
           },
-          "vaccine": {
+          "notes": {
             "anyOf": [
               {
                 "type": "string"
@@ -809,83 +945,15 @@
                 "type": "null"
               }
             ],
-            "title": "Vaccine"
+            "title": "Notes"
           }
         },
+        "type": "object",
         "title": "Immunization",
-        "type": "object"
+        "description": "Immunization history details."
       },
       "LabResult": {
-        "description": "Laboratory result details.",
         "properties": {
-          "abnormalFlag": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abnormalflag"
-          },
-          "collectedAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collectedat"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
-          "referenceRange": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Referencerange"
-          },
-          "resultedAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resultedat"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
           "testCode": {
             "anyOf": [
               {
@@ -908,6 +976,17 @@
             ],
             "title": "Testname"
           },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
           "unit": {
             "anyOf": [
               {
@@ -919,7 +998,7 @@
             ],
             "title": "Unit"
           },
-          "value": {
+          "referenceRange": {
             "anyOf": [
               {
                 "type": "string"
@@ -928,25 +1007,82 @@
                 "type": "null"
               }
             ],
-            "title": "Value"
-          }
-        },
-        "title": "LabResult",
-        "type": "object"
-      },
-      "Medication": {
-        "description": "Medication order or administration details.",
-        "properties": {
-          "asNeeded": {
+            "title": "Referencerange"
+          },
+          "abnormalFlag": {
             "anyOf": [
               {
-                "type": "boolean"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Asneeded"
+            "title": "Abnormalflag"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collectedat"
+          },
+          "resultedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultedat"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "title": "LabResult",
+        "description": "Laboratory result details."
+      },
+      "Medication": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "dose": {
             "anyOf": [
@@ -959,17 +1095,16 @@
             ],
             "title": "Dose"
           },
-          "endDate": {
+          "route": {
             "anyOf": [
               {
-                "format": "date-time",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Enddate"
+            "title": "Route"
           },
           "frequency": {
             "anyOf": [
@@ -982,6 +1117,41 @@
             ],
             "title": "Frequency"
           },
+          "startDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "asNeeded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asneeded"
+          },
           "indication": {
             "anyOf": [
               {
@@ -993,51 +1163,6 @@
             ],
             "title": "Indication"
           },
-          "instructions": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instructions"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "route": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Route"
-          },
-          "startDate": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Startdate"
-          },
           "status": {
             "anyOf": [
               {
@@ -1048,15 +1173,26 @@
               }
             ],
             "title": "Status"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
           }
         },
+        "type": "object",
         "title": "Medication",
-        "type": "object"
+        "description": "Medication order or administration details."
       },
       "PatientDemographics": {
-        "description": "Structured demographic attributes about a patient.",
         "properties": {
-          "address": {
+          "patientId": {
             "anyOf": [
               {
                 "type": "string"
@@ -1065,20 +1201,10 @@
                 "type": "null"
               }
             ],
-            "title": "Address"
+            "title": "Patientid",
+            "description": "Unique patient id"
           },
-          "age": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Age"
-          },
-          "biologicalSex": {
+          "mrn": {
             "anyOf": [
               {
                 "type": "string"
@@ -1087,41 +1213,8 @@
                 "type": "null"
               }
             ],
-            "title": "Biologicalsex"
-          },
-          "dateOfBirth": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dateofbirth"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "ethnicity": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ethnicity"
+            "title": "Mrn",
+            "description": "Medical record number"
           },
           "firstName": {
             "anyOf": [
@@ -1134,7 +1227,7 @@
             ],
             "title": "Firstname"
           },
-          "fullName": {
+          "middleName": {
             "anyOf": [
               {
                 "type": "string"
@@ -1143,29 +1236,7 @@
                 "type": "null"
               }
             ],
-            "title": "Fullname"
-          },
-          "gender": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gender"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
+            "title": "Middlename"
           },
           "lastName": {
             "anyOf": [
@@ -1178,7 +1249,7 @@
             ],
             "title": "Lastname"
           },
-          "maritalStatus": {
+          "fullName": {
             "anyOf": [
               {
                 "type": "string"
@@ -1187,75 +1258,7 @@
                 "type": "null"
               }
             ],
-            "title": "Maritalstatus"
-          },
-          "middleName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Middlename"
-          },
-          "mrn": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Medical record number",
-            "title": "Mrn"
-          },
-          "occupation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Occupation"
-          },
-          "patientId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Unique patient id",
-            "title": "Patientid"
-          },
-          "phone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone"
-          },
-          "preferredContactMethod": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Preferredcontactmethod"
+            "title": "Fullname"
           },
           "prefix": {
             "anyOf": [
@@ -1267,6 +1270,62 @@
               }
             ],
             "title": "Prefix"
+          },
+          "suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suffix"
+          },
+          "dateOfBirth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dateofbirth"
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "biologicalSex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Biologicalsex"
           },
           "pronouns": {
             "anyOf": [
@@ -1290,7 +1349,7 @@
             ],
             "title": "Race"
           },
-          "suffix": {
+          "ethnicity": {
             "anyOf": [
               {
                 "type": "string"
@@ -1299,43 +1358,92 @@
                 "type": "null"
               }
             ],
-            "title": "Suffix"
+            "title": "Ethnicity"
+          },
+          "maritalStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maritalstatus"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "occupation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupation"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "preferredContactMethod": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferredcontactmethod"
           }
         },
+        "type": "object",
         "title": "PatientDemographics",
-        "type": "object"
+        "description": "Structured demographic attributes about a patient."
       },
       "PatientRecord": {
-        "description": "Aggregate structure capturing the patient's longitudinal record.",
         "properties": {
-          "allergies": {
-            "items": {
-              "$ref": "#/components/schemas/Allergy"
-            },
-            "title": "Allergies",
-            "type": "array"
-          },
-          "careTeam": {
-            "items": {
-              "$ref": "#/components/schemas/CareTeamMember"
-            },
-            "title": "Careteam",
-            "type": "array"
-          },
-          "clinicalDocuments": {
-            "items": {
-              "$ref": "#/components/schemas/ClinicalDocument"
-            },
-            "title": "Clinicaldocuments",
-            "type": "array"
-          },
-          "clinicalNotes": {
-            "items": {
-              "$ref": "#/components/schemas/ClinicalNote"
-            },
-            "title": "Clinicalnotes",
-            "type": "array"
-          },
           "demographics": {
             "anyOf": [
               {
@@ -1350,78 +1458,106 @@
             "items": {
               "$ref": "#/components/schemas/Encounter"
             },
-            "title": "Encounters",
-            "type": "array"
-          },
-          "familyHistory": {
-            "items": {
-              "$ref": "#/components/schemas/FamilyHistoryItem"
-            },
-            "title": "Familyhistory",
-            "type": "array"
-          },
-          "imaging": {
-            "items": {
-              "$ref": "#/components/schemas/ImagingStudy"
-            },
-            "title": "Imaging",
-            "type": "array"
-          },
-          "immunizations": {
-            "items": {
-              "$ref": "#/components/schemas/Immunization"
-            },
-            "title": "Immunizations",
-            "type": "array"
-          },
-          "labResults": {
-            "items": {
-              "$ref": "#/components/schemas/LabResult"
-            },
-            "title": "Labresults",
-            "type": "array"
+            "type": "array",
+            "title": "Encounters"
           },
           "medications": {
             "items": {
               "$ref": "#/components/schemas/Medication"
             },
-            "title": "Medications",
-            "type": "array"
+            "type": "array",
+            "title": "Medications"
           },
-          "problems": {
+          "allergies": {
             "items": {
-              "$ref": "#/components/schemas/Problem"
+              "$ref": "#/components/schemas/Allergy"
             },
-            "title": "Problems",
-            "type": "array"
+            "type": "array",
+            "title": "Allergies"
           },
           "procedures": {
             "items": {
               "$ref": "#/components/schemas/Procedure"
             },
-            "title": "Procedures",
-            "type": "array"
+            "type": "array",
+            "title": "Procedures"
           },
-          "socialHistory": {
+          "imaging": {
             "items": {
-              "$ref": "#/components/schemas/SocialHistoryItem"
+              "$ref": "#/components/schemas/ImagingStudy"
             },
-            "title": "Socialhistory",
-            "type": "array"
+            "type": "array",
+            "title": "Imaging"
+          },
+          "immunizations": {
+            "items": {
+              "$ref": "#/components/schemas/Immunization"
+            },
+            "type": "array",
+            "title": "Immunizations"
+          },
+          "labResults": {
+            "items": {
+              "$ref": "#/components/schemas/LabResult"
+            },
+            "type": "array",
+            "title": "Labresults"
           },
           "vitalSigns": {
             "items": {
               "$ref": "#/components/schemas/VitalSign"
             },
-            "title": "Vitalsigns",
-            "type": "array"
+            "type": "array",
+            "title": "Vitalsigns"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "clinicalNotes": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicalNote"
+            },
+            "type": "array",
+            "title": "Clinicalnotes"
+          },
+          "clinicalDocuments": {
+            "items": {
+              "$ref": "#/components/schemas/ClinicalDocument"
+            },
+            "type": "array",
+            "title": "Clinicaldocuments"
+          },
+          "careTeam": {
+            "items": {
+              "$ref": "#/components/schemas/CareTeamMember"
+            },
+            "type": "array",
+            "title": "Careteam"
+          },
+          "socialHistory": {
+            "items": {
+              "$ref": "#/components/schemas/SocialHistoryItem"
+            },
+            "type": "array",
+            "title": "Socialhistory"
+          },
+          "familyHistory": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyHistoryItem"
+            },
+            "type": "array",
+            "title": "Familyhistory"
           }
         },
+        "type": "object",
         "title": "PatientRecord",
-        "type": "object"
+        "description": "Aggregate structure capturing the patient's longitudinal record."
       },
       "Problem": {
-        "description": "Problem list entry.",
         "properties": {
           "name": {
             "anyOf": [
@@ -1433,41 +1569,6 @@
               }
             ],
             "title": "Name"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
-          "onset": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Onset"
-          },
-          "resolved": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolved"
           },
           "status": {
             "anyOf": [
@@ -1479,36 +1580,30 @@
               }
             ],
             "title": "Status"
-          }
-        },
-        "title": "Problem",
-        "type": "object"
-      },
-      "Procedure": {
-        "description": "Procedures performed or planned for the patient.",
-        "properties": {
-          "date": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date"
           },
-          "name": {
+          "onset": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "format": "date-time"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Onset"
+          },
+          "resolved": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved"
           },
           "notes": {
             "anyOf": [
@@ -1520,6 +1615,47 @@
               }
             ],
             "title": "Notes"
+          }
+        },
+        "type": "object",
+        "title": "Problem",
+        "description": "Problem list entry."
+      },
+      "Procedure": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
           },
           "performer": {
             "anyOf": [
@@ -1532,7 +1668,7 @@
             ],
             "title": "Performer"
           },
-          "status": {
+          "notes": {
             "anyOf": [
               {
                 "type": "string"
@@ -1541,14 +1677,14 @@
                 "type": "null"
               }
             ],
-            "title": "Status"
+            "title": "Notes"
           }
         },
+        "type": "object",
         "title": "Procedure",
-        "type": "object"
+        "description": "Procedures performed or planned for the patient."
       },
       "SocialHistoryItem": {
-        "description": "Social history elements relevant to the encounter.",
         "properties": {
           "category": {
             "anyOf": [
@@ -1575,8 +1711,8 @@
           "recordedAt": {
             "anyOf": [
               {
-                "format": "date-time",
-                "type": "string"
+                "type": "string",
+                "format": "date-time"
               },
               {
                 "type": "null"
@@ -1585,8 +1721,9 @@
             "title": "Recordedat"
           }
         },
+        "type": "object",
         "title": "SocialHistoryItem",
-        "type": "object"
+        "description": "Social history elements relevant to the encounter."
       },
       "ValidationError": {
         "properties": {
@@ -1601,52 +1738,28 @@
                 }
               ]
             },
-            "title": "Location",
-            "type": "array"
+            "type": "array",
+            "title": "Location"
           },
           "msg": {
-            "title": "Message",
-            "type": "string"
+            "type": "string",
+            "title": "Message"
           },
           "type": {
-            "title": "Error Type",
-            "type": "string"
+            "type": "string",
+            "title": "Error Type"
           }
         },
+        "type": "object",
         "required": [
           "loc",
           "msg",
           "type"
         ],
-        "title": "ValidationError",
-        "type": "object"
+        "title": "ValidationError"
       },
       "VitalSign": {
-        "description": "Individual vital sign measurement.",
         "properties": {
-          "qualifier": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Qualifier"
-          },
-          "takenAt": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Takenat"
-          },
           "type": {
             "anyOf": [
               {
@@ -1657,6 +1770,17 @@
               }
             ],
             "title": "Type"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
           },
           "unit": {
             "anyOf": [
@@ -1669,7 +1793,19 @@
             ],
             "title": "Unit"
           },
-          "value": {
+          "takenAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takenat"
+          },
+          "qualifier": {
             "anyOf": [
               {
                 "type": "string"
@@ -1678,132 +1814,12 @@
                 "type": "null"
               }
             ],
-            "title": "Value"
+            "title": "Qualifier"
           }
         },
+        "type": "object",
         "title": "VitalSign",
-        "type": "object"
-      }
-    }
-  },
-  "info": {
-    "title": "Patient Context Service",
-    "version": "0.1.0"
-  },
-  "openapi": "3.1.0",
-  "paths": {
-    "/health": {
-      "get": {
-        "description": "Return a simple health payload for orchestration checks.",
-        "operationId": "health_health_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Health Health Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Health",
-        "tags": [
-          "health"
-        ]
-      }
-    },
-    "/patients/context": {
-      "get": {
-        "description": "Return the chat-oriented patient context for ``patient_id``.",
-        "operationId": "read_patient_context_patients_context_get",
-        "parameters": [
-          {
-            "description": "Unique identifier for the patient",
-            "in": "query",
-            "name": "patient_id",
-            "required": true,
-            "schema": {
-              "description": "Unique identifier for the patient",
-              "title": "Patient Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EHRPatientContext"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Read Patient Context",
-        "tags": [
-          "patients"
-        ]
-      }
-    },
-    "/patients/{patient_id}": {
-      "get": {
-        "description": "Return the normalized patient record for ``patient_id``.",
-        "operationId": "read_patient_record_patients__patient_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "patient_id",
-            "required": true,
-            "schema": {
-              "title": "Patient Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PatientRecord"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Read Patient Record",
-        "tags": [
-          "patients"
-        ]
+        "description": "Individual vital sign measurement."
       }
     }
   }

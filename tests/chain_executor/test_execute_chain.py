@@ -7,9 +7,13 @@ from pathlib import Path
 from typing import Any, Dict, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from shared.llm.prompt_builder import PromptTemplateSpec as PromptTemplateSpecType
+    from shared.llm.prompt_builder import (
+        PromptTemplateSpec as PromptTemplateSpecType,
+    )
+    from shared.models.chat import EHRPatientContext as EHRPatientContextType
 else:
     PromptTemplateSpecType = Any
+    EHRPatientContextType = Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -425,7 +429,7 @@ async def test_execute_chain_prefers_prompt_categories_for_patient_context(
 
         async def get_patient_context(
             self, patient_id: str, *, categories: Sequence[str] | None = None
-        ) -> Any:
+        ) -> EHRPatientContextType:
             self.calls.append(
                 {
                     "patient_id": patient_id,
@@ -484,7 +488,7 @@ async def test_execute_chain_uses_request_categories_when_prompt_missing(
 
         async def get_patient_context(
             self, patient_id: str, *, categories: Sequence[str] | None = None
-        ) -> Any:
+        ) -> EHRPatientContextType:
             self.calls.append(
                 {
                     "patient_id": patient_id,
@@ -543,7 +547,7 @@ async def test_execute_chain_requests_categories_from_classifier(
 
         async def get_patient_context(
             self, patient_id: str, *, categories: Sequence[str] | None = None
-        ) -> Any:
+        ) -> EHRPatientContextType:
             self.calls.append(
                 {
                     "patient_id": patient_id,
