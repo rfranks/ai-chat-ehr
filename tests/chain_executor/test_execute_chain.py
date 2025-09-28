@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -276,6 +276,14 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
         classmethod(fake_classifier_create),
     )
 
+    model_classifier_calls: list[Any] = []
+
+    async def fake_model_classifier(prompt: Any, settings: Any) -> str:
+        model_classifier_calls.append(prompt)
+        return "openai/gpt-3.5-turbo"
+
+    monkeypatch.setattr(chain_app, "_classify_model_slug", fake_model_classifier)
+
     prompt_definition = ChatPrompt(
         key=ChatPromptKey.PATIENT_SUMMARY,
         template="Patient summary: {symptom}",
@@ -306,8 +314,10 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
         "modelProvider": "openai/gpt-3.5-turbo",
     }
 
+    transport = ASGITransport(app=app)
+
     try:
-        async with AsyncClient(app=app, base_url="http://testserver") as client:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             response = await client.post("/chains/execute", json=payload)
     finally:
         app.dependency_overrides.pop(chain_app.get_prompt_catalog_client, None)
@@ -339,5 +349,129 @@ async def test_execute_chain_uses_prompt_enum_and_classifies_categories(
     assert "prompt_json" in classifier.chain.calls[0]
     assert classifier.parse_calls == ['["general_reasoning"]']
 
+    assert model_classifier_calls, "Model classifier was not invoked"
+
     step_metadata = body["steps"][0]["prompt"].get("metadata", {})
     assert step_metadata.get("categories") == ["general_reasoning"]
+
+
+@pytest.mark.anyio
+async def test_execute_chain_classifies_model_when_missing_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chain_app = importlib.import_module("services.chain_executor.app")
+    chat_models = importlib.import_module("shared.models.chat")
+    prompt_builder = importlib.import_module("shared.llm.prompt_builder")
+    openai_adapter = importlib.import_module("shared.llm.adapters.openai")
+    anthropic_adapter = importlib.import_module("shared.llm.adapters.anthropic")
+
+    ChatPrompt = chat_models.ChatPrompt
+    PromptTemplateSpec = prompt_builder.PromptTemplateSpec
+    MissingPromptTemplateError = prompt_builder.MissingPromptTemplateError
+
+    class DummyPromptTemplate:
+        def __init__(self, text: str) -> None:
+            self._text = text
+            pattern = re.compile(r"{([^{}]+)}")
+            self.input_variables = tuple(dict.fromkeys(pattern.findall(text)))
+
+        def format(self, **variables: Any) -> str:
+            if not self.input_variables:
+                return self._text
+            return self._text.format(**variables)
+
+    def fake_build_prompt_template(prompt: Any) -> PromptTemplateSpec:
+        text = (getattr(prompt, "template", "") or "").strip()
+        if not text:
+            raise MissingPromptTemplateError(
+                "Prompt definition is missing template text"
+            )
+        template = DummyPromptTemplate(text)
+        return PromptTemplateSpec(
+            template=template, input_variables=template.input_variables
+        )
+
+    monkeypatch.setattr(chain_app, "build_prompt_template", fake_build_prompt_template)
+
+    dummy_llm = DummyLLM()
+    monkeypatch.setattr(
+        openai_adapter, "get_chat_model", lambda *args, **kwargs: dummy_llm
+    )
+    monkeypatch.setattr(
+        anthropic_adapter, "get_chat_model", lambda *args, **kwargs: dummy_llm
+    )
+    monkeypatch.setattr(chain_app, "LLMChain", DummyLLMChain)
+    monkeypatch.setattr(chain_app, "_CATEGORY_CLASSIFICATION_CACHE", {})
+
+    classifier_instances: list[DummyClassifierInstance] = []
+
+    def fake_classifier_create(
+        cls, llm: Any, categories: Any = None
+    ) -> DummyClassifierInstance:
+        instance = DummyClassifierInstance()
+        classifier_instances.append(instance)
+        return instance
+
+    monkeypatch.setattr(
+        chain_app.CategoryClassifier,
+        "create",
+        classmethod(fake_classifier_create),
+    )
+
+    classifier_calls: list[Any] = []
+
+    async def fake_model_classifier(prompt: Any, settings: Any) -> str:
+        classifier_calls.append(prompt)
+        return "anthropic/claude-3-sonnet"
+
+    monkeypatch.setattr(chain_app, "_classify_model_slug", fake_model_classifier)
+
+    prompt_client = DummyPromptCatalogClient(
+        ChatPrompt(template="Template {value}", input_variables=["value"], metadata={})
+    )
+    patient_client = DummyPatientContextClient()
+
+    app = chain_app.get_app()
+
+    async def _prompt_client_override() -> DummyPromptCatalogClient:
+        return prompt_client
+
+    async def _patient_client_override() -> DummyPatientContextClient:
+        return patient_client
+
+    app.dependency_overrides[chain_app.get_prompt_catalog_client] = (
+        _prompt_client_override
+    )
+    app.dependency_overrides[chain_app.get_patient_context_client] = (
+        _patient_client_override
+    )
+
+    payload = {
+        "chain": ["Summarize the patient's {symptom} presentation."],
+        "variables": {"symptom": "wheezing"},
+        "modelProvider": "openai/gpt-3.5-turbo",
+    }
+
+    transport = ASGITransport(app=app)
+
+    try:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post("/chains/execute", json=payload)
+    finally:
+        app.dependency_overrides.pop(chain_app.get_prompt_catalog_client, None)
+        app.dependency_overrides.pop(chain_app.get_patient_context_client, None)
+
+    assert response.status_code == 200
+    body = response.json()
+
+    expected_prompt = "Summarize the patient's wheezing presentation."
+    assert len(dummy_llm.calls) == 1
+    llm_call = dummy_llm.calls[0]
+    assert llm_call["prompt"] == expected_prompt
+    assert llm_call["variables"]["symptom"] == "wheezing"
+
+    assert body["modelProvider"] == "anthropic/claude-3-sonnet"
+    assert body["provider"] == "anthropic/claude-3-sonnet"
+
+    assert classifier_calls, "Model classifier should have been invoked"
+    assert classifier_instances, "Category classifier should still be created"
