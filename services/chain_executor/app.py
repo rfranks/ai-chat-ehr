@@ -487,9 +487,7 @@ def _extract_prompt_model_preferences(
     return model_identifier, provider_hint
 
 
-async def _classify_model_slug(
-    prompt: ChatPrompt, settings: Settings
-) -> str | None:
+async def _classify_model_slug(prompt: ChatPrompt, settings: Settings) -> str | None:
     try:
         classifier_llm = DEFAULT_MODEL_PROVIDER.create_client(settings=settings)
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -883,12 +881,9 @@ async def _build_execution_context(
     if prompt_provider_hint is not None:
         provider_hint = prompt_provider_hint
 
-    needs_model_classifier = (
-        not model_identifier
-        and (
-            not final_from_catalog
-            or (prompt_model_identifier is None and prompt_provider_hint is None)
-        )
+    needs_model_classifier = not model_identifier and (
+        not final_from_catalog
+        or (prompt_model_identifier is None and prompt_provider_hint is None)
     )
 
     if needs_model_classifier:

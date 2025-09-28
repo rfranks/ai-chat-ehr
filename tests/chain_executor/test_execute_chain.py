@@ -457,7 +457,9 @@ async def test_execute_chain_classifies_model_when_missing_metadata(
     transport = ASGITransport(app=app)
 
     try:
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             response = await client.post("/chains/execute", json=payload)
     finally:
         app.dependency_overrides.pop(chain_app.get_prompt_catalog_client, None)
