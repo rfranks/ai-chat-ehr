@@ -904,7 +904,9 @@ async def _build_execution_context(
     category_classifier: CategoryClassifier | None = None
     prompt_categories: list[str] = []
     if final_from_catalog:
-        prompt_categories = _filter_valid_categories(_get_prompt_categories(final_prompt))
+        prompt_categories = _filter_valid_categories(
+            _get_prompt_categories(final_prompt)
+        )
 
     final_categories: list[str] = []
     if prompt_categories:
@@ -917,7 +919,9 @@ async def _build_execution_context(
         category_classifier = await _ensure_prompt_categories(
             final_prompt, llm, category_classifier
         )
-        final_categories = _filter_valid_categories(_get_prompt_categories(final_prompt))
+        final_categories = _filter_valid_categories(
+            _get_prompt_categories(final_prompt)
+        )
 
     if payload.patient_id:
         try:
