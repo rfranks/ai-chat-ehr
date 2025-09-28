@@ -3,6 +3,7 @@
 from .providers import LLMProvider
 from .llmmodels import (
     DEFAULT_CANONICAL_MODEL_NAME,
+    DEFAULT_MODEL_PROVIDER,
     DEFAULT_PROVIDER,
     ModelSpec,
     available_model_specs,
@@ -26,6 +27,7 @@ __all__ = [
     "LLMProvider",
     "ModelSpec",
     "DEFAULT_PROVIDER",
+    "DEFAULT_MODEL_PROVIDER",
     "DEFAULT_CANONICAL_MODEL_NAME",
     "available_model_specs",
     "canonical_model_name",
