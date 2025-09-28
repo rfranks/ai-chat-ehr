@@ -261,6 +261,12 @@ def available_model_specs() -> Tuple[ModelSpec, ...]:
     return tuple(_MODEL_SPECS.values())
 
 
+def get_all_model_specs() -> Tuple[ModelSpec, ...]:
+    """Return all registered model specifications."""
+
+    return available_model_specs()
+
+
 def get_model_spec(provider: LLMProvider) -> ModelSpec:
     """Return the canonical :class:`ModelSpec` for ``provider``."""
 
@@ -386,6 +392,7 @@ __all__ = [
     "DEFAULT_MODEL_PROVIDER",
     "DEFAULT_CANONICAL_MODEL_NAME",
     "available_model_specs",
+    "get_all_model_specs",
     "canonical_model_name",
     "get_model_spec",
     "resolve_model_name",
