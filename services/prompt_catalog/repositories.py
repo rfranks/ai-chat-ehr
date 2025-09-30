@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from shared.models.chat import ChatPrompt, ChatPromptKey, _match_prompt_key
 
@@ -33,6 +34,7 @@ class PromptRepository:
         *,
         query: str | None = None,
         key: ChatPromptKey | None = None,
+        categories: Iterable[str] | None = None,
         limit: int = 20,
     ) -> list[ChatPrompt]:
         """Return prompts filtered by ``query`` and ``key``.
@@ -43,12 +45,27 @@ class PromptRepository:
             Optional text that should appear within the prompt metadata or template.
         key:
             Optional :class:`ChatPromptKey` to filter for an exact prompt identifier.
+        categories:
+            Optional collection of category slugs. Prompts must contain at least one of
+            the provided slugs in their ``categories`` attribute or metadata
+            ``categories`` entry.
         limit:
             Maximum number of results to return. A negative value is treated as zero.
         """
 
         normalized_key = self._normalize_identifier(key) if key else None
         normalized_query = query.lower().strip() if query else None
+        normalized_categories = (
+            {
+                slug
+                for slug in (
+                    self._normalize_category_slug(value) for value in categories or []
+                )
+                if slug
+            }
+            if categories
+            else None
+        )
 
         if limit <= 0:
             return []
@@ -59,6 +76,11 @@ class PromptRepository:
                 continue
 
             if normalized_query and not self._matches_query(prompt, normalized_query):
+                continue
+
+            if normalized_categories and not self._matches_categories(
+                prompt, normalized_categories
+            ):
                 continue
 
             results.append(prompt)
@@ -92,6 +114,64 @@ class PromptRepository:
                     parts.append(normalized)
         haystack = " ".join(parts).lower()
         return query in haystack
+
+    def _matches_categories(self, prompt: ChatPrompt, categories: set[str]) -> bool:
+        """Return ``True`` when the prompt intersects ``categories``."""
+
+        prompt_categories = self._extract_categories(prompt)
+        if not prompt_categories:
+            return False
+        return not prompt_categories.isdisjoint(categories)
+
+    def _extract_categories(self, prompt: ChatPrompt) -> set[str]:
+        """Return the normalised category slugs for ``prompt``."""
+
+        categories: set[str] = set()
+        for value in prompt.categories or []:
+            slug = self._normalize_category_slug(value)
+            if slug:
+                categories.add(slug)
+
+        metadata = prompt.metadata or {}
+        if metadata:
+            raw_metadata_categories = metadata.get("categories")
+            for value in self._iterate_category_values(raw_metadata_categories):
+                slug = self._normalize_category_slug(value)
+                if slug:
+                    categories.add(slug)
+        return categories
+
+    def _iterate_category_values(self, value: Any) -> Iterable[str]:
+        """Yield raw category values from ``value`` regardless of structure."""
+
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, Mapping):
+            return [str(value)]
+        if isinstance(value, Iterable):
+            results: list[str] = []
+            for item in value:
+                if isinstance(item, str):
+                    results.append(item)
+                elif item is not None:
+                    results.append(str(item))
+            return results
+        return [str(value)]
+
+    @staticmethod
+    def _normalize_category_slug(value: Any) -> str:
+        """Normalise a category value to a lowercase slug."""
+
+        if value is None:
+            return ""
+        if not isinstance(value, str):
+            value = str(value)
+        stripped = value.strip()
+        if not stripped:
+            return ""
+        return stripped.lower()
 
     def _identifier_for_prompt(self, prompt: ChatPrompt) -> str:
         """Return the canonical identifier for ``prompt`` for dictionary storage."""

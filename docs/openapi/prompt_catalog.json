@@ -1,348 +1,107 @@
 {
-  "components": {
-    "schemas": {
-      "ChatPrompt": {
-        "description": "Metadata describing a reusable chat prompt template.",
-        "properties": {
-          "chain": {
-            "description": "Sequence of additional prompts or raw instructions to execute prior to this prompt",
-            "items": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/ChatPromptKey"
-                },
-                {
-                  "$ref": "#/components/schemas/ChatPrompt"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            },
-            "title": "Chain",
-            "type": "array"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Detailed explanation of the prompt's purpose",
-            "title": "Description"
-          },
-          "inputVariables": {
-            "description": "Names of variables expected by the template",
-            "items": {
-              "type": "string"
-            },
-            "title": "Inputvariables",
-            "type": "array"
-          },
-          "key": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ChatPromptKey"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Canonical identifier for the prompt"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "description": "Arbitrary metadata for the prompt",
-            "title": "Metadata",
-            "type": "object"
-          },
-          "template": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Prompt template text that may contain replacement variables",
-            "title": "Template"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Human readable label",
-            "title": "Title"
-          }
-        },
-        "title": "ChatPrompt",
-        "type": "object"
-      },
-      "ChatPromptKey": {
-        "description": "Canonical identifiers for reusable chat prompts.",
-        "enum": [
-          "patient_context",
-          "patient_summary",
-          "differential_diagnosis",
-          "clinical_plan",
-          "follow_up_questions",
-          "patient_education",
-          "safety_checks",
-          "triage_assessment"
-        ],
-        "title": "ChatPromptKey",
-        "type": "string"
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "title": "Detail",
-            "type": "array"
-          }
-        },
-        "title": "HTTPValidationError",
-        "type": "object"
-      },
-      "PromptCollectionResponse": {
-        "description": "Response payload containing a collection of prompts.",
-        "properties": {
-          "prompts": {
-            "items": {
-              "$ref": "#/components/schemas/ChatPrompt"
-            },
-            "title": "Prompts",
-            "type": "array"
-          }
-        },
-        "title": "PromptCollectionResponse",
-        "type": "object"
-      },
-      "PromptResponse": {
-        "description": "Response payload containing a single prompt.",
-        "properties": {
-          "prompt": {
-            "$ref": "#/components/schemas/ChatPrompt"
-          }
-        },
-        "required": [
-          "prompt"
-        ],
-        "title": "PromptResponse",
-        "type": "object"
-      },
-      "PromptCategory": {
-        "description": "Serializable representation of a prompt EMR data category.",
-        "properties": {
-          "aliases": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Aliases",
-            "type": "array"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "slug": {
-            "title": "Slug",
-            "type": "string"
-          }
-        },
-        "required": [
-          "slug",
-          "name",
-          "description",
-          "aliases"
-        ],
-        "title": "PromptCategory",
-        "type": "object"
-      },
-      "PromptSearchRequest": {
-        "description": "Search criteria for locating prompts.",
-        "properties": {
-          "key": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ChatPromptKey"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Optional canonical prompt key to filter by."
-          },
-          "limit": {
-            "default": 20,
-            "description": "Maximum number of prompts to include in the response.",
-            "maximum": 50.0,
-            "minimum": 1.0,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "query": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Free-text query to match against prompt metadata and template.",
-            "title": "Query"
-          }
-        },
-        "title": "PromptSearchRequest",
-        "type": "object"
-      },
-      "PromptSearchResponse": {
-        "description": "Response payload containing search results.",
-        "properties": {
-          "results": {
-            "items": {
-              "$ref": "#/components/schemas/ChatPrompt"
-            },
-            "title": "Results",
-            "type": "array"
-          }
-        },
-        "title": "PromptSearchResponse",
-        "type": "object"
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "title": "Location",
-            "type": "array"
-          },
-          "msg": {
-            "title": "Message",
-            "type": "string"
-          },
-          "type": {
-            "title": "Error Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError",
-        "type": "object"
-      }
-    }
-  },
+  "openapi": "3.1.0",
   "info": {
     "title": "Prompt Catalog Service",
     "version": "0.1.0"
   },
-  "openapi": "3.1.0",
   "paths": {
-    "/categories": {
-      "get": {
-        "description": "Return the canonical prompt categories available for classification.",
-        "operationId": "list_categories_categories_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PromptCategory"
-                  },
-                  "title": "Response Categories",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List Categories",
-        "tags": [
-          "categories"
-        ]
-      }
-    },
     "/health": {
       "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
         "description": "Return a simple health payload for orchestration checks.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": {
                     "type": "string"
                   },
-                  "title": "Response Health Health Get",
-                  "type": "object"
+                  "type": "object",
+                  "title": "Response Health Health Get"
                 }
               }
-            },
-            "description": "Successful Response"
+            }
           }
-        },
-        "summary": "Health",
-        "tags": [
-          "health"
-        ]
+        }
       }
     },
     "/prompts": {
       "get": {
+        "tags": [
+          "prompts"
+        ],
+        "summary": "List Prompts",
         "description": "Return all prompts registered in the catalog.",
         "operationId": "list_prompts_prompts_get",
         "responses": {
           "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PromptCollectionResponse"
                 }
               }
-            },
-            "description": "Successful Response"
+            }
           }
-        },
-        "summary": "List Prompts",
+        }
+      }
+    },
+    "/prompts/{prompt_id}": {
+      "get": {
         "tags": [
           "prompts"
-        ]
+        ],
+        "summary": "Get Prompt",
+        "description": "Return a single prompt by ``prompt_id``.",
+        "operationId": "get_prompt_prompts__prompt_id__get",
+        "parameters": [
+          {
+            "name": "prompt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Prompt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/prompts/search": {
       "post": {
+        "tags": [
+          "prompts"
+        ],
+        "summary": "Search Prompts",
         "description": "Search prompts using structured criteria.",
         "operationId": "search_prompts_prompts_search_post",
         "requestBody": {
@@ -357,73 +116,355 @@
         },
         "responses": {
           "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PromptSearchResponse"
                 }
               }
-            },
-            "description": "Successful Response"
+            }
           },
           "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Search Prompts",
-        "tags": [
-          "prompts"
-        ]
-      }
-    },
-    "/prompts/{prompt_id}": {
-      "get": {
-        "description": "Return a single prompt by ``prompt_id``.",
-        "operationId": "get_prompt_prompts__prompt_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "prompt_id",
-            "required": true,
-            "schema": {
-              "title": "Prompt Id",
-              "type": "string"
             }
           }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": [
+          "categories"
         ],
+        "summary": "List Categories",
+        "description": "Return the canonical prompt categories available for classification.",
+        "operationId": "list_categories_categories_get",
         "responses": {
           "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PromptResponse"
+                  "items": {
+                    "$ref": "#/components/schemas/PromptCategory"
+                  },
+                  "type": "array",
+                  "title": "Response List Categories Categories Get"
                 }
               }
-            },
-            "description": "Successful Response"
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChatPrompt": {
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatPromptKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical identifier for the prompt"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
               }
+            ],
+            "title": "Title",
+            "description": "Human readable label"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Detailed explanation of the prompt's purpose"
+          },
+          "categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Categories",
+            "description": "The categories of data rquired to answer or fullfil the prompt"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template",
+            "description": "Prompt template text that may contain replacement variables"
+          },
+          "inputVariables": {
+            "items": {
+              "type": "string"
             },
-            "description": "Validation Error"
+            "type": "array",
+            "title": "Inputvariables",
+            "description": "Names of variables expected by the template"
+          },
+          "chain": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ChatPromptKey"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatPrompt"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Chain",
+            "description": "Sequence of additional prompts or raw instructions to execute prior to this prompt"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Arbitrary metadata for the prompt"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "The model best suited to answer this prompt"
           }
         },
-        "summary": "Get Prompt",
-        "tags": [
-          "prompts"
-        ]
+        "type": "object",
+        "title": "ChatPrompt",
+        "description": "Metadata describing a reusable chat prompt template."
+      },
+      "ChatPromptKey": {
+        "type": "string",
+        "enum": [
+          "patient_context",
+          "patient_summary",
+          "differential_diagnosis",
+          "clinical_plan",
+          "follow_up_questions",
+          "patient_education",
+          "safety_checks",
+          "triage_assessment"
+        ],
+        "title": "ChatPromptKey",
+        "description": "Canonical identifiers for reusable chat prompts."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "PromptCategory": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "description"
+        ],
+        "title": "PromptCategory",
+        "description": "Serializable representation of a prompt EMR data category."
+      },
+      "PromptCollectionResponse": {
+        "properties": {
+          "prompts": {
+            "items": {
+              "$ref": "#/components/schemas/ChatPrompt"
+            },
+            "type": "array",
+            "title": "Prompts"
+          }
+        },
+        "type": "object",
+        "title": "PromptCollectionResponse",
+        "description": "Response payload containing a collection of prompts."
+      },
+      "PromptResponse": {
+        "properties": {
+          "prompt": {
+            "$ref": "#/components/schemas/ChatPrompt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "PromptResponse",
+        "description": "Response payload containing a single prompt."
+      },
+      "PromptSearchRequest": {
+        "properties": {
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query",
+            "description": "Free-text query to match against prompt metadata and template."
+          },
+          "key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatPromptKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional canonical prompt key to filter by."
+          },
+          "categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Categories",
+            "description": "Optional list of category slugs that prompts must intersect to be returned."
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "description": "Maximum number of prompts to include in the response.",
+            "default": 20
+          }
+        },
+        "type": "object",
+        "title": "PromptSearchRequest",
+        "description": "Search criteria for locating prompts."
+      },
+      "PromptSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ChatPrompt"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "title": "PromptSearchResponse",
+        "description": "Response payload containing search results."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       }
     }
   }

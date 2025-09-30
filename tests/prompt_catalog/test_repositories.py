@@ -93,6 +93,57 @@ async def test_search_prompts_matches_metadata_values() -> None:
 
 
 @pytest.mark.anyio("asyncio")
+async def test_search_prompts_filters_by_categories_only() -> None:
+    prompt = ChatPrompt(
+        title="Category Match",
+        template="Hello",
+        metadata={"id": "category-match"},
+        categories=["Labs"],
+    )
+    other_prompt = ChatPrompt(
+        title="Category Miss",
+        template="Hello",
+        metadata={"id": "category-miss"},
+        categories=["notes"],
+    )
+    repository = PromptRepository([prompt, other_prompt])
+
+    results = await repository.search_prompts(categories=["labs"])
+
+    assert results == [prompt]
+
+
+@pytest.mark.anyio("asyncio")
+async def test_search_prompts_filters_by_query_and_categories() -> None:
+    prompt = ChatPrompt(
+        title="Relevant Prompt",
+        template="Hello",
+        metadata={"id": "relevant", "categories": ["Notes"]},
+        categories=[],
+    )
+    repository = PromptRepository([prompt])
+
+    results = await repository.search_prompts(query="hello", categories=["notes"])
+
+    assert results == [prompt]
+
+
+@pytest.mark.anyio("asyncio")
+async def test_search_prompts_invalid_category_slug_returns_empty() -> None:
+    prompt = ChatPrompt(
+        title="Category Prompt",
+        template="Hello",
+        metadata={"id": "category-prompt"},
+        categories=["problems"],
+    )
+    repository = PromptRepository([prompt])
+
+    results = await repository.search_prompts(categories=["unknown-category"])
+
+    assert results == []
+
+
+@pytest.mark.anyio("asyncio")
 async def test_default_prompt_catalog_contains_expected_prompts() -> None:
     repository = get_prompt_repository()
 
