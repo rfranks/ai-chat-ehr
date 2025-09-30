@@ -27,6 +27,9 @@ import re
 from copy import deepcopy
 
 from shared.models import PatientRecord
+from shared.observability.logger import get_logger
+
+from .resilience import RetryPolicy, call_async_with_retry, call_with_retry
 
 from ..anonymization.replacement import ReplacementContext, apply_replacement
 from ..clients import FirestoreClient, FirestorePatientDocument
@@ -45,6 +48,9 @@ __all__ = [
 
 
 ColumnResolver = Callable[[Mapping[str, Any], "PipelineContext"], Any]
+
+
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -84,6 +90,13 @@ class PipelineRunSummary:
     anonymized_patient: Mapping[str, Any]
     replacements: tuple[ReplacementSummary, ...]
     repository_results: tuple[dict[str, Any], ...]
+    persistence_error: str | None = None
+
+    @property
+    def persistence_succeeded(self) -> bool:
+        """Return ``True`` when repository writes completed successfully."""
+
+        return self.persistence_error is None
 
 
 class PatientDocumentNotFoundError(RuntimeError):
@@ -296,6 +309,7 @@ class PatientPipeline:
         column_mapping: Mapping[str, ColumnResolver | str],
         field_rules: Sequence[FieldRule] | None = None,
         replacement_context_factory: Callable[[], ReplacementContext] | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         if not ddl_key:
             raise ValueError("ddl_key must be provided for the INSERT mapping")
@@ -309,6 +323,7 @@ class PatientPipeline:
             tuple(field_rules) if field_rules else DEFAULT_FIELD_RULES
         )
         self._context_factory = replacement_context_factory or ReplacementContext
+        self._retry_policy = retry_policy or RetryPolicy()
 
         resolvers: MutableMapping[str, ColumnResolver] = {}
         for column, resolver in column_mapping.items():
@@ -350,7 +365,7 @@ class PatientPipeline:
         context.anonymized_patient = anonymized_payload
 
         row = self._build_row(anonymized_payload, context)
-        repository_results = await self._repository.insert(self._ddl_key, row)
+        repository_results, persistence_error = await self._persist_row(row, context)
 
         replacements = _summarize_replacements(context.replacement_context)
 
@@ -359,13 +374,28 @@ class PatientPipeline:
             collection=collection,
             anonymized_patient=deepcopy(anonymized_payload),
             replacements=replacements,
-            repository_results=tuple(dict(row) for row in repository_results),
+            repository_results=repository_results,
+            persistence_error=persistence_error,
         )
 
     def _fetch_document(
         self, document_id: str, *, collection: str | None = None
     ) -> FirestorePatientDocument:
-        document = self._firestore.get_patient_document(document_id, collection=collection)
+        try:
+            document = call_with_retry(
+                self._firestore.get_patient_document,
+                document_id,
+                collection=collection,
+                policy=self._retry_policy,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error(
+                "firestore_document_fetch_failed",
+                document_id=document_id,
+                collection=collection,
+                error=str(exc),
+            )
+            raise
         if document is None:
             raise PatientDocumentNotFoundError(document_id)
         return document
@@ -403,6 +433,27 @@ class PatientPipeline:
             value = resolver(payload, context)
             row[column] = _serialise_for_column(value)
         return row
+
+    async def _persist_row(
+        self, row: Mapping[str, Any], context: PipelineContext
+    ) -> tuple[tuple[dict[str, Any], ...], str | None]:
+        try:
+            results = await call_async_with_retry(
+                self._repository.insert,
+                self._ddl_key,
+                row,
+                policy=self._retry_policy,
+            )
+        except Exception as exc:
+            logger.error(
+                "repository_insert_failed",
+                document_id=context.document_id,
+                ddl_key=self._ddl_key,
+                error=str(exc),
+            )
+            return (), str(exc)
+
+        return tuple(dict(item) for item in results), None
 
 
 def _summarize_replacements(
