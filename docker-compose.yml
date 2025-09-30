@@ -67,6 +67,32 @@ services:
       redis:
         condition: service_started
 
+  anonymizer:
+    image: ai-chat-ehr-anonymizer:latest
+    build:
+      context: .
+      dockerfile: services/anonymizer/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ai-chat-ehr-base:latest}
+    command: >-
+      uvicorn services.anonymizer.main:app
+      --host 0.0.0.0
+      --port 8004
+    env_file:
+      - .env
+    environment:
+      ANONYMIZER_DB_URL: ${ANONYMIZER_DB_URL:-postgresql+asyncpg://anonymizer:anonymizer@postgres:5432/anonymizer}
+      LOG_LEVEL: ${ANONYMIZER_LOG_LEVEL:-info}
+    volumes:
+      - ./services/anonymizer:/app/services/anonymizer
+      - ./shared:/app/shared
+      - ./repositories:/app/repositories
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   redis:
     image: redis:7-alpine
     ports:
@@ -76,3 +102,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-anonymizer}
+      POSTGRES_USER: ${POSTGRES_USER:-anonymizer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-anonymizer}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "${POSTGRES_USER:-anonymizer}" -d "${POSTGRES_DB:-anonymizer}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
