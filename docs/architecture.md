@@ -45,3 +45,10 @@ serialises the prompt payload to JSON, invokes its `LLMChain`, and parses the
 response into category slugs using a deterministic parser. Successful
 classifications are cached by a digest of the prompt metadata, and the inferred
 slugs are injected back into the prompt metadata for downstream consumers.
+
+Cache characteristics can be tuned via environment variables without code changes.
+`CHAIN_EXECUTOR_CATEGORY_CACHE_MAX_ENTRIES` and
+`CHAIN_EXECUTOR_CATEGORY_CACHE_TTL_SECONDS` configure the baseline cache size and
+expiration. The service also exposes `CHAIN_EXECUTOR_CLASSIFICATION_CACHE_MAX_ENTRIES`
+and `CHAIN_EXECUTOR_CLASSIFICATION_CACHE_TTL_SECONDS` for overriding the
+classification cache independently when tighter limits or shorter lifetimes are required.

@@ -165,3 +165,72 @@ async def test_cache_ttl_expiry(monkeypatch: pytest.MonkeyPatch, chain_app):
     await asyncio.sleep(0.06)
 
     assert await chain_app._get_cached_categories("ttl-key") is None
+
+
+def test_classification_cache_defaults(chain_app, monkeypatch: pytest.MonkeyPatch):
+    settings = chain_app.ChainExecutorSettings(
+        category_cache_max_entries=7,
+        category_cache_ttl_seconds=0.5,
+    )
+
+    def _get_settings() -> chain_app.ChainExecutorSettings:
+        return settings
+
+    setattr(_get_settings, "cache_clear", lambda: None)
+    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+
+    max_entries, ttl = chain_app._category_cache_config()
+
+    assert max_entries == 7
+    assert ttl == 0.5
+
+
+@pytest.mark.anyio("asyncio")
+async def test_classification_cache_max_entries_override(
+    monkeypatch: pytest.MonkeyPatch, chain_app
+):
+    settings = chain_app.ChainExecutorSettings(
+        category_cache_max_entries=4,
+        category_cache_ttl_seconds=None,
+        classification_cache_max_entries=2,
+        classification_cache_ttl_seconds=None,
+    )
+
+    def _get_settings() -> chain_app.ChainExecutorSettings:
+        return settings
+
+    setattr(_get_settings, "cache_clear", lambda: None)
+    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+
+    await chain_app._set_cached_categories("first", ("one",))
+    await chain_app._set_cached_categories("second", ("two",))
+    await chain_app._set_cached_categories("third", ("three",))
+
+    assert await chain_app._get_cached_categories("first") is None
+    assert await chain_app._get_cached_categories("second") == ("two",)
+    assert await chain_app._get_cached_categories("third") == ("three",)
+
+
+@pytest.mark.anyio("asyncio")
+async def test_classification_cache_ttl_override(
+    monkeypatch: pytest.MonkeyPatch, chain_app
+):
+    settings = chain_app.ChainExecutorSettings(
+        category_cache_max_entries=4,
+        category_cache_ttl_seconds=None,
+        classification_cache_max_entries=None,
+        classification_cache_ttl_seconds=0.05,
+    )
+
+    def _get_settings() -> chain_app.ChainExecutorSettings:
+        return settings
+
+    setattr(_get_settings, "cache_clear", lambda: None)
+    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+
+    await chain_app._set_cached_categories("ttl-key", ("ttl",))
+    assert await chain_app._get_cached_categories("ttl-key") == ("ttl",)
+
+    await asyncio.sleep(0.06)
+
+    assert await chain_app._get_cached_categories("ttl-key") is None
