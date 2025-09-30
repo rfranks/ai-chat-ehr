@@ -16,7 +16,7 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "Install dependencies"
         },
         {
             "name": "Prompt Catalog",
@@ -33,7 +33,7 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "Install dependencies"
         },
         {
             "name": "Patient Context",
@@ -50,7 +50,7 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "Install dependencies"
         },
         {
             "name": "Chain Executor",
@@ -67,8 +67,25 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
-            "preLaunchTask": "pip install (workspace)"
+            "preLaunchTask": "Install dependencies"
         },
+        {
+            "name": "Anonymizer",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "services.anonymizer.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8004"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "Install dependencies"
+        }
     ],
     "compounds": [
         {
@@ -77,7 +94,8 @@
                 "API Gateway",
                 "Prompt Catalog",
                 "Patient Context",
-                "Chain Executor"
+                "Chain Executor",
+                "Anonymizer"
             ],
             "stopAll": true
         }
