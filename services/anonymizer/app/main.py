@@ -92,11 +92,37 @@ def _resolve_anonymized_payload(
     return payload
 
 
+def _resolve_collection(_payload: Mapping[str, Any], context: Any) -> str | None:
+    return getattr(context, "collection", None)
+
+
+def _resolve_firestore_document(
+    _payload: Mapping[str, Any], context: Any
+) -> Mapping[str, Any]:
+    return getattr(context, "firestore_document", {})
+
+
+def _resolve_normalized_document(
+    _payload: Mapping[str, Any], context: Any
+) -> Mapping[str, Any]:
+    return getattr(context, "normalized_document", {})
+
+
+def _resolve_patient_payload(
+    _payload: Mapping[str, Any], context: Any
+) -> Mapping[str, Any]:
+    return getattr(context, "patient_payload", {})
+
+
 @lru_cache
 def _build_patient_pipeline() -> PatientPipeline:
     settings = get_settings()
     column_mapping = {
         "document_id": "document_id",
+        "collection": _resolve_collection,
+        "firestore_document": _resolve_firestore_document,
+        "normalized_document": _resolve_normalized_document,
+        "patient_payload": _resolve_patient_payload,
         "anonymized_payload": _resolve_anonymized_payload,
     }
     return PatientPipeline(
