@@ -103,6 +103,22 @@ class ChainExecutorSettings(BaseSettings):
         ge=0.0,
         description="Optional TTL in seconds for prompt category cache entries.",
     )
+    classification_cache_max_entries: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Optional override for the maximum number of prompt classification cache"
+            " entries to retain."
+        ),
+    )
+    classification_cache_ttl_seconds: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Optional override for the TTL in seconds applied to prompt classification"
+            " cache entries."
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="CHAIN_EXECUTOR_",
@@ -438,8 +454,14 @@ def _category_cache_key(prompt: ChatPrompt) -> str:
 
 def _category_cache_config() -> tuple[int, float | None]:
     settings = get_service_settings()
-    max_entries = int(settings.category_cache_max_entries)
-    ttl_seconds = settings.category_cache_ttl_seconds
+    if settings.classification_cache_max_entries is not None:
+        max_entries = int(settings.classification_cache_max_entries)
+    else:
+        max_entries = int(settings.category_cache_max_entries)
+    if settings.classification_cache_ttl_seconds is not None:
+        ttl_seconds = settings.classification_cache_ttl_seconds
+    else:
+        ttl_seconds = settings.category_cache_ttl_seconds
     ttl = float(ttl_seconds) if ttl_seconds is not None else None
     return max_entries, ttl
 

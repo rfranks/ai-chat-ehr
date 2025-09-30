@@ -53,6 +53,19 @@ can request the right slices of patient context.
 2. Populate provider credentials (for OpenAI, Azure, Anthropic, or Vertex) and
    update any overrides such as `DEFAULT_MODEL__PROVIDER` or Redis settings.
 
+### Chain executor environment variables
+
+The chain executor service recognises several knobs for tuning cache behaviour
+without code changes. All variables are optional and fall back to sensible
+defaults if unset.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `CHAIN_EXECUTOR_CATEGORY_CACHE_MAX_ENTRIES` | Maximum number of cached prompt category entries retained in memory. | `256` |
+| `CHAIN_EXECUTOR_CATEGORY_CACHE_TTL_SECONDS` | Optional TTL applied to prompt category cache entries; omit to disable expiration. | Not set (no expiry) |
+| `CHAIN_EXECUTOR_CLASSIFICATION_CACHE_MAX_ENTRIES` | Overrides the maximum size of the classification cache used by the prompt category classifier. | Inherits from `CHAIN_EXECUTOR_CATEGORY_CACHE_MAX_ENTRIES` |
+| `CHAIN_EXECUTOR_CLASSIFICATION_CACHE_TTL_SECONDS` | Overrides the TTL applied to cached classification results. | Inherits from `CHAIN_EXECUTOR_CATEGORY_CACHE_TTL_SECONDS` |
+
 ### Option A: Local Python environment
 
 1. Create and activate a Python 3.10 virtual environment.
