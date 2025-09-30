@@ -9,11 +9,16 @@ from typing import Any, Mapping, Union
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 
-from shared.observability.logger import configure_logging, get_logger
-
 from .clients import FirestoreClient, FirestoreClientConfig
 from .clients.postgres_repository import InsertStatement, PostgresRepository
 from .config import AppSettings, Settings, get_settings
+from .logging import (
+    ReplacementAuditEntry,
+    anonymizer_logging_context,
+    configure_logging,
+    get_logger,
+    record_anonymization_audit,
+)
 from .pipelines import build_mapping_from_files
 from .pipelines.patient_pipeline import (
     PatientDocumentNotFoundError,
@@ -144,60 +149,99 @@ def create_app(settings: AppConfig | None = None) -> FastAPI:
         """Run the patient anonymization pipeline and return a summary payload."""
 
         collection = settings.pipeline.patient_collection
-        try:
-            summary = await pipeline.run_with_summary(
-                document_id, collection=collection
-            )
-        except PatientDocumentNotFoundError as exc:
+        with anonymizer_logging_context(
+            document_id=document_id, collection=collection
+        ) as correlation_id:
+            try:
+                summary = await pipeline.run_with_summary(
+                    document_id, collection=collection
+                )
+            except PatientDocumentNotFoundError as exc:
+                logger.info(
+                    "patient_document_not_found",
+                    document_id=document_id,
+                    collection=collection,
+                    correlation_id=correlation_id,
+                )
+                record_anonymization_audit(
+                    document_id=document_id,
+                    collection=collection,
+                    actor=app_settings.service_name,
+                    status="not_found",
+                    total_replacements=0,
+                    correlation_id=correlation_id,
+                    metadata={"error": str(exc)},
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"message": str(exc), "documentId": exc.document_id},
+                ) from exc
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception(
+                    "patient_anonymization_failed",
+                    document_id=document_id,
+                    collection=collection,
+                    correlation_id=correlation_id,
+                    error=str(exc),
+                )
+                record_anonymization_audit(
+                    document_id=document_id,
+                    collection=collection,
+                    actor=app_settings.service_name,
+                    status="error",
+                    total_replacements=0,
+                    correlation_id=correlation_id,
+                    metadata={"error": str(exc)},
+                )
+                raise HTTPException(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to anonymize patient document.",
+                ) from exc
+
+            anonymized_payload = jsonable_encoder(summary.anonymized_patient)
+            replacement_entries = [
+                ReplacementAuditEntry(
+                    entity_type=item.entity_type, count=item.count
+                )
+                for item in summary.replacements
+            ]
+            total_replacements = sum(entry.count for entry in replacement_entries)
+            repository_rows = jsonable_encoder(list(summary.repository_results))
+
+            response = {
+                "documentId": summary.document_id,
+                "collection": summary.collection or collection,
+                "anonymizedPatient": anonymized_payload,
+                "anonymization": {
+                    "totalReplacements": total_replacements,
+                    "entities": [
+                        entry.to_dict() for entry in replacement_entries
+                    ],
+                },
+                "repository": {
+                    "rows": repository_rows,
+                    "count": len(repository_rows),
+                },
+            }
+
             logger.info(
-                "patient_document_not_found",
-                document_id=document_id,
-                collection=collection,
+                "patient_anonymized",
+                document_id=summary.document_id,
+                collection=response["collection"],
+                correlation_id=correlation_id,
+                total_replacements=total_replacements,
             )
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"message": str(exc), "documentId": exc.document_id},
-            ) from exc
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.exception(
-                "patient_anonymization_failed",
-                document_id=document_id,
-                collection=collection,
-                error=str(exc),
+
+            record_anonymization_audit(
+                document_id=summary.document_id,
+                collection=response["collection"],
+                actor=app_settings.service_name,
+                status="success",
+                total_replacements=total_replacements,
+                replacements=replacement_entries,
+                correlation_id=correlation_id,
+                metadata={"repositoryRowCount": len(repository_rows)},
             )
-            raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to anonymize patient document.",
-            ) from exc
-
-        anonymized_payload = jsonable_encoder(summary.anonymized_patient)
-        replacements = [
-            {"entityType": item.entity_type, "count": item.count}
-            for item in summary.replacements
-        ]
-        total_replacements = sum(item["count"] for item in replacements)
-        repository_rows = jsonable_encoder(list(summary.repository_results))
-
-        response = {
-            "documentId": summary.document_id,
-            "collection": summary.collection or collection,
-            "anonymizedPatient": anonymized_payload,
-            "anonymization": {
-                "totalReplacements": total_replacements,
-                "entities": replacements,
-            },
-            "repository": {
-                "rows": repository_rows,
-                "count": len(repository_rows),
-            },
-        }
-
-        logger.info(
-            "patient_anonymized",
-            document_id=summary.document_id,
-            collection=response["collection"],
-            total_replacements=total_replacements,
-        )
 
         return response
 
