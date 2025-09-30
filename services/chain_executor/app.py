@@ -458,6 +458,7 @@ def _category_cache_config() -> tuple[int, float | None]:
         max_entries = int(settings.classification_cache_max_entries)
     else:
         max_entries = int(settings.category_cache_max_entries)
+    ttl_seconds: float | None
     if settings.classification_cache_ttl_seconds is not None:
         ttl_seconds = settings.classification_cache_ttl_seconds
     else:
