@@ -19,6 +19,7 @@ service while still allowing tests to provide lightweight fakes.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, MutableMapping, Sequence
 import json
@@ -37,6 +38,8 @@ __all__ = [
     "PatientDocumentNotFoundError",
     "PatientPipeline",
     "PipelineContext",
+    "PipelineRunSummary",
+    "ReplacementSummary",
     "build_path_resolver",
 ]
 
@@ -62,6 +65,25 @@ class PipelineContext:
     patient_payload: Mapping[str, Any]
     anonymized_patient: Mapping[str, Any] | None = None
     replacement_context: ReplacementContext | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ReplacementSummary:
+    """Aggregate information about replacements applied during anonymisation."""
+
+    entity_type: str
+    count: int
+
+
+@dataclass(slots=True, frozen=True)
+class PipelineRunSummary:
+    """Structured information returned after executing the patient pipeline."""
+
+    document_id: str
+    collection: str | None
+    anonymized_patient: Mapping[str, Any]
+    replacements: tuple[ReplacementSummary, ...]
+    repository_results: tuple[dict[str, Any], ...]
 
 
 class PatientDocumentNotFoundError(RuntimeError):
@@ -305,6 +327,14 @@ class PatientPipeline:
     ) -> list[dict[str, Any]]:
         """Execute the pipeline for ``document_id`` returning repository results."""
 
+        summary = await self.run_with_summary(document_id, collection=collection)
+        return list(summary.repository_results)
+
+    async def run_with_summary(
+        self, document_id: str, *, collection: str | None = None
+    ) -> PipelineRunSummary:
+        """Execute the pipeline returning anonymisation metadata and DB results."""
+
         document = self._fetch_document(document_id, collection=collection)
         normalized_document = _normalize_structure(document.data)
         patient_payload = self._extract_patient_payload(normalized_document)
@@ -320,7 +350,17 @@ class PatientPipeline:
         context.anonymized_patient = anonymized_payload
 
         row = self._build_row(anonymized_payload, context)
-        return await self._repository.insert(self._ddl_key, row)
+        repository_results = await self._repository.insert(self._ddl_key, row)
+
+        replacements = _summarize_replacements(context.replacement_context)
+
+        return PipelineRunSummary(
+            document_id=document.document_id,
+            collection=collection,
+            anonymized_patient=deepcopy(anonymized_payload),
+            replacements=replacements,
+            repository_results=tuple(dict(row) for row in repository_results),
+        )
 
     def _fetch_document(
         self, document_id: str, *, collection: str | None = None
@@ -363,4 +403,20 @@ class PatientPipeline:
             value = resolver(payload, context)
             row[column] = _serialise_for_column(value)
         return row
+
+
+def _summarize_replacements(
+    context: ReplacementContext | None,
+) -> tuple[ReplacementSummary, ...]:
+    if context is None:
+        return ()
+
+    counts: Counter[str] = Counter()
+    for entity_type, _ in context.cache.keys():
+        counts[entity_type.upper()] += 1
+
+    return tuple(
+        ReplacementSummary(entity_type=entity, count=count)
+        for entity, count in sorted(counts.items())
+    )
 
