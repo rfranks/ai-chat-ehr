@@ -2,15 +2,11 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "pip install (workspace)",
+            "label": "Install dependencies",
             "type": "process",
-            "command": "${command:python.interpreterPath}",
+            "command": "poetry",
             "args": [
-                "-m",
-                "pip",
-                "install",
-                "-e",
-                "."
+                "install"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -20,7 +16,7 @@
                 "panel": "new",
                 "group": "Microservices",
                 "clear": true,
-                "close": true,
+                "close": true
             },
             "problemMatcher": []
         },
@@ -29,6 +25,11 @@
             "type": "process",
             "command": "${command:python.interpreterPath}",
             "args": [
+                "-m",
+                "debugpy",
+                "--listen",
+                "5678",
+                "--wait-for-client",
                 "-m",
                 "uvicorn",
                 "services.api_gateway.app:app",
@@ -48,7 +49,7 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn": "pip install (workspace)",
+            "dependsOn": "Install dependencies",
             "dependsOrder": "sequence"
         },
         {
@@ -75,7 +76,7 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn": "pip install (workspace)",
+            "dependsOn": "Install dependencies",
             "dependsOrder": "sequence"
         },
         {
@@ -102,7 +103,7 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn": "pip install (workspace)",
+            "dependsOn": "Install dependencies",
             "dependsOrder": "sequence"
         },
         {
@@ -129,7 +130,34 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn": "pip install (workspace)",
+            "dependsOn": "Install dependencies",
+            "dependsOrder": "sequence"
+        },
+        {
+            "label": "Run Anonymizer",
+            "type": "process",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "uvicorn",
+                "services.anonymizer.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8004",
+                "--reload"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "Microservices",
+                "close": true
+            },
+            "problemMatcher": [],
+            "dependsOn": "Install dependencies",
             "dependsOrder": "sequence"
         }
     ]
