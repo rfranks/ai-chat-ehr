@@ -69,6 +69,7 @@ class PipelineContext:
     firestore_document: Mapping[str, Any]
     normalized_document: Mapping[str, Any]
     patient_payload: Mapping[str, Any]
+    collection: str | None = None
     anonymized_patient: Mapping[str, Any] | None = None
     replacement_context: ReplacementContext | None = None
 
@@ -359,6 +360,7 @@ class PatientPipeline:
             firestore_document=document.data,
             normalized_document=deepcopy(normalized_document),
             patient_payload=deepcopy(patient_payload),
+            collection=collection,
         )
 
         anonymized_payload = self._anonymize_patient_payload(patient_payload, context)
