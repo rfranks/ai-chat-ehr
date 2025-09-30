@@ -59,8 +59,7 @@ class PromptRepository:
             {
                 slug
                 for slug in (
-                    self._normalize_category_slug(value)
-                    for value in categories or []
+                    self._normalize_category_slug(value) for value in categories or []
                 )
                 if slug
             }
@@ -116,9 +115,7 @@ class PromptRepository:
         haystack = " ".join(parts).lower()
         return query in haystack
 
-    def _matches_categories(
-        self, prompt: ChatPrompt, categories: set[str]
-    ) -> bool:
+    def _matches_categories(self, prompt: ChatPrompt, categories: set[str]) -> bool:
         """Return ``True`` when the prompt intersects ``categories``."""
 
         prompt_categories = self._extract_categories(prompt)
