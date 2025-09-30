@@ -26,12 +26,13 @@ dependencies = [
     "fastapi>=0.110,<1",
     "uvicorn[standard]>=0.29,<0.30",
     "langchain==0.3.27",
-    "langchain-core>=0.3.72,<1",
+    "langchain-core==0.3.27",
     "langchain-community==0.3.27",
     "langchain-openai>=0.3,<0.4",
     "langchain-anthropic>=0.3,<0.4",
     "langchain-google-vertexai==2.1.2",
     "httpx>=0.28,<0.29",
+    "pydantic>=2.7,<3",
     "pydantic-settings>=2.1,<3",
     "python-dotenv>=1.0,<2",
     "openai>=1.14,<2",
@@ -39,6 +40,12 @@ dependencies = [
     "loguru>=0.7,<0.8",
     "structlog>=24.1,<25",
     "tenacity>=8.2,<9"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3,<9",
+    "pytest-anyio>=0.23,<0.24",
 ]
 
 [project.urls]
