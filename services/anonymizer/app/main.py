@@ -2,39 +2,29 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
+from typing import Union
 
 from fastapi import APIRouter, FastAPI
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .config import AppSettings, Settings, get_settings
+
+AppConfig = Union[Settings, AppSettings]
 
 
-class AnonymizerSettings(BaseSettings):
-    """Application configuration loaded from the environment."""
+def _extract_app_settings(settings: AppConfig) -> AppSettings:
+    """Normalise either top-level or app-only settings objects."""
 
-    service_name: str = Field(
-        default="anonymizer",
-        description="Human friendly service identifier used in metadata and logging.",
-    )
+    if isinstance(settings, Settings):
+        return settings.app
 
-    model_config = SettingsConfigDict(
-        env_prefix="ANONYMIZER_",
-        env_file=".env",
-        extra="ignore",
-    )
+    return settings
 
 
-@lru_cache
-def get_settings() -> AnonymizerSettings:
-    """Return cached application settings."""
-
-    return AnonymizerSettings()
-
-
-def create_app(settings: AnonymizerSettings | None = None) -> FastAPI:
+def create_app(settings: AppConfig | None = None) -> FastAPI:
     """Create and configure the FastAPI application instance."""
 
-    settings = settings or get_settings()
+    resolved_settings = settings or get_settings()
+    app_settings = _extract_app_settings(resolved_settings)
 
     application = FastAPI(title="Anonymizer Service")
 
@@ -44,7 +34,7 @@ def create_app(settings: AnonymizerSettings | None = None) -> FastAPI:
     async def health() -> dict[str, str]:
         """Return a simple health status payload for uptime monitoring."""
 
-        return {"status": "ok", "service": settings.service_name}
+        return {"status": "ok", "service": app_settings.service_name}
 
     application.include_router(router)
 
@@ -54,4 +44,4 @@ def create_app(settings: AnonymizerSettings | None = None) -> FastAPI:
 settings = get_settings()
 app = create_app(settings=settings)
 
-__all__ = ["app", "settings", "create_app", "get_settings", "AnonymizerSettings"]
+__all__ = ["app", "settings", "create_app", "AppSettings", "Settings", "get_settings"]
