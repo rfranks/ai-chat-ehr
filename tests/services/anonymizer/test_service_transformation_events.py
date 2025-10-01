@@ -323,20 +323,35 @@ def test_accumulates_address_events_without_leaking_phi() -> None:
     captured = {event.entity_type for event in events if event.entity_type in address_entities}
     assert captured == address_entities
 
-    for event in events:
-        if event.entity_type in address_entities:
-            assert "123 Main St" not in event.surrogate
-            assert "Metropolis" not in event.surrogate
-            assert "10101" not in event.surrogate
-            assert event.surrogate
-
     synthesized_address = anonymized.coverages[0].address
     assert synthesized_address is not None
+    assert synthesized_address.address_line1
     assert synthesized_address.address_line1 != "123 Main St"
+    assert synthesized_address.city
     assert synthesized_address.city != "Metropolis"
+    assert synthesized_address.postal_code
     assert synthesized_address.postal_code != "10101"
+    assert synthesized_address.address_line2 == "Unit 3"
     assert synthesized_address.state == "CA"
     assert synthesized_address.country == "US"
+
+    synthesized_events = {
+        event.entity_type: event for event in events if event.entity_type in address_entities
+    }
+    for entity in address_entities:
+        event = synthesized_events[entity]
+        assert event.surrogate.startswith("Synthesized patient mailing")
+        assert event.action == "synthesize"
+        assert "123 Main St" not in event.surrogate
+        assert "Metropolis" not in event.surrogate
+        assert "10101" not in event.surrogate
+
+    assert synthesized_address.address_line1 in synthesized_events["PATIENT_ADDRESS_STREET"].surrogate
+    assert synthesized_address.city in synthesized_events["PATIENT_ADDRESS_CITY"].surrogate
+    assert (
+        synthesized_address.postal_code
+        in synthesized_events["PATIENT_ADDRESS_POSTAL_CODE"].surrogate
+    )
 
 
 def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
@@ -380,7 +395,7 @@ def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
             assert event.surrogate
 
 
-def test_extract_address_returns_generalized_structure() -> None:
+def test_extract_address_returns_synthesized_fields() -> None:
     engine = _StubPresidioEngine(
         {
             "Alice": ("anon-first", "token-first", "PATIENT_FIRST_NAME"),
@@ -402,12 +417,75 @@ def test_extract_address_returns_generalized_structure() -> None:
     )
 
     anonymized = _anonymize_document(engine, document)
+    synthesized_address = anonymized.coverages[0].address
+    assert synthesized_address is not None
+
     generalized = _extract_address(anonymized)
 
-    assert generalized is not None
-    assert generalized["street"] == anonymized.coverages[0].address.address_line1
-    assert generalized["city"] == anonymized.coverages[0].address.city
-    assert generalized["state"] == "TX"
-    assert generalized["postal_code"] == anonymized.coverages[0].address.postal_code
-    assert generalized["country"] == "US"
-    assert generalized.get("unit") == anonymized.coverages[0].address.address_line2
+    expected = {
+        "street": synthesized_address.address_line1,
+        "city": synthesized_address.city,
+        "state": synthesized_address.state,
+        "postal_code": synthesized_address.postal_code,
+        "country": synthesized_address.country,
+    }
+    if synthesized_address.address_line2:
+        expected["unit"] = synthesized_address.address_line2
+
+    assert generalized == expected
+
+
+def test_extract_address_handles_missing_state() -> None:
+    engine = _StubPresidioEngine({})
+    document = _build_document()
+    document.coverages.append(
+        FirestoreCoverage(
+            address=FirestoreAddress(
+                address_line1="742 Evergreen Terrace",
+                city="Springfield",
+                postal_code="99999",
+                country="US",
+            )
+        )
+    )
+
+    events: list[TransformationEvent] = []
+    anonymized = _anonymize_document(engine, document, events)
+
+    synthesized_address = anonymized.coverages[0].address
+    assert synthesized_address is not None
+
+    generalized = _extract_address(anonymized)
+
+    expected = {
+        "street": synthesized_address.address_line1,
+        "city": synthesized_address.city,
+        "postal_code": synthesized_address.postal_code,
+        "country": synthesized_address.country,
+    }
+    assert generalized == expected
+
+    synthesized_entities = {
+        "PATIENT_ADDRESS_STREET",
+        "PATIENT_ADDRESS_CITY",
+        "PATIENT_ADDRESS_POSTAL_CODE",
+    }
+    captured = {event.entity_type for event in events if event.entity_type in synthesized_entities}
+    assert captured == synthesized_entities
+
+    synthesized_events = {
+        event.entity_type: event for event in events if event.entity_type in synthesized_entities
+    }
+    for entity in synthesized_entities:
+        event = synthesized_events[entity]
+        assert event.action == "synthesize"
+        assert "742 Evergreen Terrace" not in event.surrogate
+        assert "Springfield" not in event.surrogate
+        assert "99999" not in event.surrogate
+
+    assert synthesized_address.address_line1 in synthesized_events["PATIENT_ADDRESS_STREET"].surrogate
+    assert synthesized_address.city in synthesized_events["PATIENT_ADDRESS_CITY"].surrogate
+    assert (
+        synthesized_address.postal_code
+        in synthesized_events["PATIENT_ADDRESS_POSTAL_CODE"].surrogate
+    )
