@@ -43,6 +43,23 @@ async def test_search_prompts_zero_limit_returns_empty_list() -> None:
 
 
 @pytest.mark.anyio("asyncio")
+async def test_search_prompts_limit_truncates_in_insertion_order() -> None:
+    prompts = [
+        ChatPrompt(
+            title=f"Prompt {index}",
+            template="Hello",
+            metadata={"id": f"prompt-{index}"},
+        )
+        for index in range(5)
+    ]
+    repository = PromptRepository(prompts)
+
+    results = await repository.search_prompts(limit=3)
+
+    assert results == prompts[:3]
+
+
+@pytest.mark.anyio("asyncio")
 async def test_get_prompt_accepts_string_identifier() -> None:
     repository = _create_repository()
 
