@@ -142,6 +142,11 @@ class PatientRecord(BaseModel):
 
         return dict(self.sql_parameter_items(include_primary_key=include_primary_key))
 
+    def as_parameters(self, *, include_primary_key: bool = True) -> Dict[str, Any]:
+        """Alias for :meth:`as_sql_parameters` to provide a common interface."""
+
+        return self.as_sql_parameters(include_primary_key=include_primary_key)
+
 
 __all__ = [
     "Gender",
