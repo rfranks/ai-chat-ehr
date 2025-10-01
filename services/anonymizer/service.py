@@ -111,8 +111,12 @@ async def process_patient(
     firestore: FirestoreDataSource | None = None,
     anonymizer: PresidioAnonymizerEngine | None = None,
     storage: PostgresStorage | None = None,
-) -> UUID:
-    """Fetch, anonymize, and persist a patient record from Firestore."""
+) -> tuple[UUID, list[TransformationEvent]]:
+    """Fetch, anonymize, and persist a patient record from Firestore.
+
+    Returns a tuple containing the persisted patient UUID along with the
+    collected transformation events emitted by the anonymizer engine.
+    """
 
     deps = _resolve_dependencies(firestore=firestore, anonymizer=anonymizer, storage=storage)
 
@@ -163,7 +167,7 @@ async def process_patient(
             patient_row=scrub_for_logging(patient_row),
             transformation_event_count=len(transformation_events),
         )
-        return patient_id
+        return patient_id, transformation_events
     except ConstraintViolationError as exc:
         raise DuplicatePatientError(
             "An anonymized patient record already exists for this facility and EHR source.",
