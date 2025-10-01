@@ -35,11 +35,11 @@ def summarize_transformations(
     transformations: Iterable[Mapping[str, Any]],
     generalization_metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Aggregate anonymization transformations into a JSON friendly summary.
+    """Aggregate anonymization transformations into a JSON-friendly summary.
 
     The anonymizer may record individual transformation events that include
     sensitive values such as the original piece of PHI.  This helper collapses
-    those events into high level counts grouped by entity type and action
+    those events into high-level counts grouped by entity type and action
     ensuring that the returned payload is JSON serializable and does not
     include any raw PHI strings.
 
