@@ -16,7 +16,7 @@ experience.
 | Service | Purpose | Default port | Swagger UI | OpenAPI spec |
 | --- | --- | --- | --- | --- |
 | API gateway | Reverse proxy that fronts the prompt, patient, and chain services with consistent observability and health checks. | 8000 | <http://localhost:8000/docs> | [`docs/openapi/api_gateway.json`](docs/openapi/api_gateway.json) |
-| Prompt catalog | Hosts reusable prompt templates and simple search endpoints. | 8001 | <http://localhost:8001/docs> | [`docs/openapi/prompt_catalog.json`](docs/openapi/prompt_catalog.json) |
+| Prompt catalog | Hosts reusable prompt templates and simple search endpoints. | 8001 | <http://localhost:8001/docs> | <span style="white-space:nowrap;">[`docs/openapi/prompt_catalog.json`](docs/openapi/prompt_catalog.json)</span> |
 | Patient context | Serves mock EMR data and pre-normalized patient context payloads. | 8002 | <http://localhost:8002/docs> | [`docs/openapi/patient_context.json`](docs/openapi/patient_context.json) |
 | Chain executor | Resolves prompt chains, enriches them with patient context, and executes LLM calls with optional streaming. | 8003 | <http://localhost:8003/docs> | [`docs/openapi/chain_executor.json`](docs/openapi/chain_executor.json) |
 | Anonymizer | Fetches patient documents, applies Safe Harbor PHI masking, and persists anonymized records. | 8004 | <http://localhost:8004/docs> | _Coming soon_ |
