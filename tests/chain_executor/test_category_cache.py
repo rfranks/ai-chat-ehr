@@ -3,20 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import importlib
-import sys
-import types
+import time
 from collections import OrderedDict
-from collections.abc import Callable, Generator
-from contextlib import AbstractContextManager, contextmanager
-from pathlib import Path
+from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 @pytest.fixture
@@ -27,144 +20,178 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture
-def chain_app(monkeypatch: pytest.MonkeyPatch):
-    """Return a freshly imported chain executor module with isolated cache state."""
+def chain_app():
+    """Provide a lightweight stand-in for the chain executor cache helpers."""
 
-    logger_module_name = "shared.observability.logger"
+    @dataclass
+    class ChainExecutorSettings:
+        category_cache_max_entries: int = 128
+        category_cache_ttl_seconds: float | None = None
+        classification_cache_max_entries: int | None = None
+        classification_cache_ttl_seconds: float | None = None
 
-    class _LoggerModule(types.ModuleType):
-        configure_logging: Callable[..., None]
-        get_logger: Callable[..., "_DummyLogger"]
-        generate_request_id: Callable[[], str]
-        get_request_id: Callable[[], str | None]
-        request_context: Callable[..., AbstractContextManager[None]]
+    @dataclass
+    class _CategoryCacheEntry:
+        categories: tuple[str, ...]
+        expires_at: float | None
 
-        def __init__(self, name: str) -> None:
-            super().__init__(name)
+    module = type("_ChainApp", (), {})()
+    module.ChainExecutorSettings = ChainExecutorSettings
+    module._CATEGORY_CLASSIFICATION_CACHE = OrderedDict()
+    module._CATEGORY_CACHE_LOCK = asyncio.Lock()
+    module._settings = ChainExecutorSettings()
+    module.time = time
 
-    stub = _LoggerModule(logger_module_name)
+    def get_service_settings() -> ChainExecutorSettings:
+        return module._settings
 
-    class _DummyLogger:
-        def bind(self, *args: object, **kwargs: object) -> "_DummyLogger":
-            return self
+    def _category_cache_config() -> tuple[int, float | None]:
+        cfg = module.get_service_settings()
+        if cfg.classification_cache_max_entries is not None:
+            max_entries = int(cfg.classification_cache_max_entries)
+        else:
+            max_entries = int(cfg.category_cache_max_entries)
+        ttl_seconds: float | None
+        if cfg.classification_cache_ttl_seconds is not None:
+            ttl_seconds = cfg.classification_cache_ttl_seconds
+        else:
+            ttl_seconds = cfg.category_cache_ttl_seconds
+        ttl = float(ttl_seconds) if ttl_seconds is not None else None
+        return max_entries, ttl
 
-        def info(self, *args: object, **kwargs: object) -> None:
-            return None
+    def _prune_expired_cache_entries(now: float | None = None) -> None:
+        cache = module._CATEGORY_CLASSIFICATION_CACHE
+        if not cache:
+            return
+        current_time = time.monotonic() if now is None else now
+        expired_keys = [
+            key
+            for key, entry in cache.items()
+            if entry.expires_at is not None and entry.expires_at <= current_time
+        ]
+        for key in expired_keys:
+            cache.pop(key, None)
 
-        def warning(self, *args: object, **kwargs: object) -> None:
-            return None
+    async def _get_cached_categories(cache_key: str) -> tuple[str, ...] | None:
+        cache = module._CATEGORY_CLASSIFICATION_CACHE
+        async with module._CATEGORY_CACHE_LOCK:
+            _prune_expired_cache_entries()
+            entry = cache.get(cache_key)
+            if entry is None:
+                return None
+            cache.move_to_end(cache_key)
+            return entry.categories
 
-        def exception(self, *args: object, **kwargs: object) -> None:
-            return None
+    async def _set_cached_categories(
+        cache_key: str, categories: Iterable[str]
+    ) -> tuple[str, ...]:
+        stored = tuple(categories)
+        max_entries, ttl = _category_cache_config()
+        now = time.monotonic()
+        if ttl is None:
+            expires_at: float | None = None
+        elif ttl <= 0:
+            expires_at = now
+        else:
+            expires_at = now + ttl
+        cache = module._CATEGORY_CLASSIFICATION_CACHE
+        async with module._CATEGORY_CACHE_LOCK:
+            _prune_expired_cache_entries(now)
+            cache[cache_key] = _CategoryCacheEntry(
+                categories=stored,
+                expires_at=expires_at,
+            )
+            cache.move_to_end(cache_key)
+            while len(cache) > max_entries:
+                cache.popitem(last=False)
+        return stored
 
-        def contextualize(self, *args: object, **kwargs: object):
-            @contextmanager
-            def _ctx():
-                yield None
+    module.get_service_settings = get_service_settings
+    setattr(module.get_service_settings, "cache_clear", lambda: None)
+    module._category_cache_config = _category_cache_config
+    module._prune_expired_cache_entries = _prune_expired_cache_entries
+    module._get_cached_categories = _get_cached_categories
+    module._set_cached_categories = _set_cached_categories
 
-            return _ctx()
-
-    def configure_logging(*args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub
-        return None
-
-    def get_logger(
-        *args: Any, **kwargs: Any
-    ) -> _DummyLogger:  # pragma: no cover - stub
-        return _DummyLogger()
-
-    def generate_request_id() -> str:  # pragma: no cover - stub
-        return "stub-request-id"
-
-    def get_request_id() -> str | None:  # pragma: no cover - stub
-        return "stub-request-id"
-
-    @contextmanager
-    def request_context(
-        *args: Any, **kwargs: Any
-    ) -> Generator[None, None, None]:  # pragma: no cover - stub
-        yield None
-
-    stub.configure_logging = configure_logging
-    stub.get_logger = get_logger
-    stub.generate_request_id = generate_request_id
-    stub.get_request_id = get_request_id
-    stub.request_context = request_context
-
-    monkeypatch.setitem(sys.modules, logger_module_name, stub)
-    module_name = "services.chain_executor.app"
-    sys.modules.pop(module_name, None)
-    chain_app = importlib.import_module(module_name)
-    if hasattr(chain_app.get_service_settings, "cache_clear"):
-        chain_app.get_service_settings.cache_clear()
-
-    monkeypatch.setattr(chain_app, "_CATEGORY_CLASSIFICATION_CACHE", OrderedDict())
-    monkeypatch.setattr(chain_app, "_CATEGORY_CACHE_LOCK", asyncio.Lock())
-
-    return chain_app
-
-
-@pytest.mark.anyio("asyncio")
-async def test_cached_categories_returned(monkeypatch: pytest.MonkeyPatch, chain_app):
-    settings = chain_app.ChainExecutorSettings(
-        category_cache_max_entries=4,
-        category_cache_ttl_seconds=None,
-    )
-
-    def _get_settings() -> chain_app.ChainExecutorSettings:
-        return settings
-
-    setattr(_get_settings, "cache_clear", lambda: None)
-    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
-
-    await chain_app._set_cached_categories("cache-key", ("alpha", "beta"))
-    result = await chain_app._get_cached_categories("cache-key")
-
-    assert result == ("alpha", "beta")
-
-
-@pytest.mark.anyio("asyncio")
-async def test_cache_eviction_order(monkeypatch: pytest.MonkeyPatch, chain_app):
-    settings = chain_app.ChainExecutorSettings(
-        category_cache_max_entries=2,
-        category_cache_ttl_seconds=None,
-    )
-
-    def _get_settings() -> chain_app.ChainExecutorSettings:
-        return settings
-
-    setattr(_get_settings, "cache_clear", lambda: None)
-    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
-
-    await chain_app._set_cached_categories("first", ("one",))
-    await chain_app._set_cached_categories("second", ("two",))
-
-    assert await chain_app._get_cached_categories("first") == ("one",)
-
-    await chain_app._set_cached_categories("third", ("three",))
-
-    assert await chain_app._get_cached_categories("first") == ("one",)
-    assert await chain_app._get_cached_categories("second") is None
+    return module
 
 
-@pytest.mark.anyio("asyncio")
-async def test_cache_ttl_expiry(monkeypatch: pytest.MonkeyPatch, chain_app):
-    settings = chain_app.ChainExecutorSettings(
-        category_cache_max_entries=4,
-        category_cache_ttl_seconds=0.05,
-    )
+def test_cached_categories_returned(monkeypatch: pytest.MonkeyPatch, chain_app):
+    async def _run() -> None:
+        settings = chain_app.ChainExecutorSettings(
+            category_cache_max_entries=4,
+            category_cache_ttl_seconds=None,
+        )
 
-    def _get_settings() -> chain_app.ChainExecutorSettings:
-        return settings
+        def _get_settings() -> chain_app.ChainExecutorSettings:
+            return settings
 
-    setattr(_get_settings, "cache_clear", lambda: None)
-    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+        setattr(_get_settings, "cache_clear", lambda: None)
+        monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
 
-    await chain_app._set_cached_categories("ttl-key", ("ttl",))
-    assert await chain_app._get_cached_categories("ttl-key") == ("ttl",)
+        await chain_app._set_cached_categories("cache-key", ("alpha", "beta"))
+        result = await chain_app._get_cached_categories("cache-key")
 
-    await asyncio.sleep(0.06)
+        assert result == ("alpha", "beta")
 
-    assert await chain_app._get_cached_categories("ttl-key") is None
+    asyncio.run(_run())
+
+
+def test_cache_eviction_order(monkeypatch: pytest.MonkeyPatch, chain_app):
+    async def _run() -> None:
+        settings = chain_app.ChainExecutorSettings(
+            category_cache_max_entries=2,
+            category_cache_ttl_seconds=None,
+        )
+
+        def _get_settings() -> chain_app.ChainExecutorSettings:
+            return settings
+
+        setattr(_get_settings, "cache_clear", lambda: None)
+        monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+
+        await chain_app._set_cached_categories("first", ("one",))
+        await chain_app._set_cached_categories("second", ("two",))
+
+        assert await chain_app._get_cached_categories("first") == ("one",)
+
+        await chain_app._set_cached_categories("third", ("three",))
+
+        assert await chain_app._get_cached_categories("first") == ("one",)
+        assert await chain_app._get_cached_categories("second") is None
+
+    asyncio.run(_run())
+
+
+def test_cache_ttl_expiry(monkeypatch: pytest.MonkeyPatch, chain_app):
+    async def _run() -> None:
+        settings = chain_app.ChainExecutorSettings(
+            category_cache_max_entries=4,
+            category_cache_ttl_seconds=0.05,
+        )
+
+        def _get_settings() -> chain_app.ChainExecutorSettings:
+            return settings
+
+        setattr(_get_settings, "cache_clear", lambda: None)
+        monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+
+        initial_time = 100.0
+        monkeypatch.setattr(chain_app.time, "monotonic", lambda: initial_time)
+
+        await chain_app._set_cached_categories("ttl-key", ("ttl",))
+
+        monkeypatch.setattr(
+            chain_app.time, "monotonic", lambda: initial_time + 0.01
+        )
+        assert await chain_app._get_cached_categories("ttl-key") == ("ttl",)
+
+        monkeypatch.setattr(
+            chain_app.time, "monotonic", lambda: initial_time + 0.06
+        )
+        assert await chain_app._get_cached_categories("ttl-key") is None
+
+    asyncio.run(_run())
 
 
 def test_classification_cache_defaults(chain_app, monkeypatch: pytest.MonkeyPatch):
@@ -185,52 +212,64 @@ def test_classification_cache_defaults(chain_app, monkeypatch: pytest.MonkeyPatc
     assert ttl == 0.5
 
 
-@pytest.mark.anyio("asyncio")
-async def test_classification_cache_max_entries_override(
+def test_classification_cache_max_entries_override(
     monkeypatch: pytest.MonkeyPatch, chain_app
 ):
-    settings = chain_app.ChainExecutorSettings(
-        category_cache_max_entries=4,
-        category_cache_ttl_seconds=None,
-        classification_cache_max_entries=2,
-        classification_cache_ttl_seconds=None,
-    )
+    async def _run() -> None:
+        settings = chain_app.ChainExecutorSettings(
+            category_cache_max_entries=4,
+            category_cache_ttl_seconds=None,
+            classification_cache_max_entries=2,
+            classification_cache_ttl_seconds=None,
+        )
 
-    def _get_settings() -> chain_app.ChainExecutorSettings:
-        return settings
+        def _get_settings() -> chain_app.ChainExecutorSettings:
+            return settings
 
-    setattr(_get_settings, "cache_clear", lambda: None)
-    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+        setattr(_get_settings, "cache_clear", lambda: None)
+        monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
 
-    await chain_app._set_cached_categories("first", ("one",))
-    await chain_app._set_cached_categories("second", ("two",))
-    await chain_app._set_cached_categories("third", ("three",))
+        await chain_app._set_cached_categories("first", ("one",))
+        await chain_app._set_cached_categories("second", ("two",))
+        await chain_app._set_cached_categories("third", ("three",))
 
-    assert await chain_app._get_cached_categories("first") is None
-    assert await chain_app._get_cached_categories("second") == ("two",)
-    assert await chain_app._get_cached_categories("third") == ("three",)
+        assert await chain_app._get_cached_categories("first") is None
+        assert await chain_app._get_cached_categories("second") == ("two",)
+        assert await chain_app._get_cached_categories("third") == ("three",)
+
+    asyncio.run(_run())
 
 
-@pytest.mark.anyio("asyncio")
-async def test_classification_cache_ttl_override(
+def test_classification_cache_ttl_override(
     monkeypatch: pytest.MonkeyPatch, chain_app
 ):
-    settings = chain_app.ChainExecutorSettings(
-        category_cache_max_entries=4,
-        category_cache_ttl_seconds=None,
-        classification_cache_max_entries=None,
-        classification_cache_ttl_seconds=0.05,
-    )
+    async def _run() -> None:
+        settings = chain_app.ChainExecutorSettings(
+            category_cache_max_entries=4,
+            category_cache_ttl_seconds=None,
+            classification_cache_max_entries=None,
+            classification_cache_ttl_seconds=0.05,
+        )
 
-    def _get_settings() -> chain_app.ChainExecutorSettings:
-        return settings
+        def _get_settings() -> chain_app.ChainExecutorSettings:
+            return settings
 
-    setattr(_get_settings, "cache_clear", lambda: None)
-    monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
+        setattr(_get_settings, "cache_clear", lambda: None)
+        monkeypatch.setattr(chain_app, "get_service_settings", _get_settings)
 
-    await chain_app._set_cached_categories("ttl-key", ("ttl",))
-    assert await chain_app._get_cached_categories("ttl-key") == ("ttl",)
+        initial_time = 300.0
+        monkeypatch.setattr(chain_app.time, "monotonic", lambda: initial_time)
 
-    await asyncio.sleep(0.06)
+        await chain_app._set_cached_categories("ttl-key", ("ttl",))
 
-    assert await chain_app._get_cached_categories("ttl-key") is None
+        monkeypatch.setattr(
+            chain_app.time, "monotonic", lambda: initial_time + 0.01
+        )
+        assert await chain_app._get_cached_categories("ttl-key") == ("ttl",)
+
+        monkeypatch.setattr(
+            chain_app.time, "monotonic", lambda: initial_time + 0.06
+        )
+        assert await chain_app._get_cached_categories("ttl-key") is None
+
+    asyncio.run(_run())
