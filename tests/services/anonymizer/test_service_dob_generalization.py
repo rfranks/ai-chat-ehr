@@ -144,6 +144,15 @@ if "loguru" not in sys.modules:
     loguru_stub.logger = _Logger()
     sys.modules["loguru"] = loguru_stub
 
+if "dotenv" not in sys.modules:
+    dotenv_stub = types.ModuleType("dotenv")
+
+    def _load_dotenv(*args, **kwargs):  # pragma: no cover - stub implementation
+        return None
+
+    dotenv_stub.load_dotenv = _load_dotenv
+    sys.modules["dotenv"] = dotenv_stub
+
 if "shared" not in sys.modules:
     shared_stub = types.ModuleType("shared")
     observability_stub = types.ModuleType("shared.observability")
@@ -175,6 +184,7 @@ if "shared" not in sys.modules:
     sys.modules["shared.observability.logger"] = logger_stub
 
 from services.anonymizer.models.firestore import FirestoreName, FirestorePatientDocument
+from services.anonymizer.models.transformation_event import TransformationEvent
 from services.anonymizer.service import _convert_to_patient_row
 
 
@@ -217,3 +227,70 @@ def test_suppresses_birth_date_for_patients_aged_90_or_older() -> None:
 
     assert row.dob is None
     assert any(event.action == "suppress" and event.entity_type == "PATIENT_DOB" for event in events)
+
+
+def test_patient_row_generalizes_year_only_for_age_eighty_nine() -> None:
+    today = date.today()
+    dob = date(today.year - 89, 6, 15)
+    events: list[TransformationEvent] = []
+
+    row = _convert_to_patient_row(
+        original=_build_document(dob),
+        anonymized=_build_document(dob),
+        document_id="doc-3",
+        event_accumulator=events,
+    )
+
+    assert row.dob == date(dob.year, 1, 1)
+    assert {event.action for event in events} == {"generalize"}
+    assert {event.entity_type for event in events} == {"PATIENT_DOB"}
+    assert all(dob.isoformat() not in (event.surrogate or "") for event in events)
+
+
+def test_patient_row_suppresses_dob_for_age_ninety_or_older() -> None:
+    today = date.today()
+    dob = date(today.year - 90, 1, 1)
+    events: list[TransformationEvent] = []
+
+    row = _convert_to_patient_row(
+        original=_build_document(dob),
+        anonymized=_build_document(dob),
+        document_id="doc-4",
+        event_accumulator=events,
+    )
+
+    assert row.dob is None
+    assert {event.action for event in events} == {"suppress"}
+    assert {event.entity_type for event in events} == {"PATIENT_DOB"}
+    assert all(dob.isoformat() not in (event.surrogate or "") for event in events)
+
+
+def test_patient_row_generalizes_leap_year_birthdays() -> None:
+    dob = date(2000, 2, 29)
+    events: list[TransformationEvent] = []
+
+    row = _convert_to_patient_row(
+        original=_build_document(dob),
+        anonymized=_build_document(dob),
+        document_id="doc-5",
+        event_accumulator=events,
+    )
+
+    assert row.dob == date(2000, 1, 1)
+    assert any(event.action == "generalize" for event in events)
+    assert {event.entity_type for event in events} == {"PATIENT_DOB"}
+    assert all(dob.isoformat() not in (event.surrogate or "") for event in events)
+
+
+def test_patient_row_handles_missing_birth_date() -> None:
+    events: list[TransformationEvent] = []
+
+    row = _convert_to_patient_row(
+        original=_build_document(None),
+        anonymized=_build_document(None),
+        document_id="doc-6",
+        event_accumulator=events,
+    )
+
+    assert row.dob is None
+    assert events == []
