@@ -19,7 +19,9 @@ class SQLFileStorage:
         "-- Review the generated INSERT statements before applying them to Postgres.\n\n"
     )
 
-    def __init__(self, path: str | Path, *, append: bool = False, encoding: str = "utf-8") -> None:
+    def __init__(
+        self, path: str | Path, *, append: bool = False, encoding: str = "utf-8"
+    ) -> None:
         self._path = Path(path)
         self._append = append
         self._encoding = encoding
