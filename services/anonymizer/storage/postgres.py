@@ -179,13 +179,19 @@ class PostgresStorage:
                     cur.execute(query, params)
                     row = cur.fetchone()
                     if not row or row[0] is None:
-                        raise StorageError("Insert did not return a patient identifier.")
+                        raise StorageError(
+                            "Insert did not return a patient identifier."
+                        )
                     patient_id = row[0]
                 except errors.IntegrityError as exc:
                     conn.rollback()
-                    constraint = getattr(getattr(exc, "diag", None), "constraint_name", None)
+                    constraint = getattr(
+                        getattr(exc, "diag", None), "constraint_name", None
+                    )
                     detail = getattr(getattr(exc, "diag", None), "message_detail", None)
-                    message = detail or "Database constraint violated during patient insert."
+                    message = (
+                        detail or "Database constraint violated during patient insert."
+                    )
                     raise ConstraintViolationError(
                         message,
                         constraint=constraint,

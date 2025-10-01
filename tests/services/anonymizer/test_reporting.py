@@ -1,5 +1,7 @@
 """Tests for anonymizer reporting helpers."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import importlib.util
@@ -122,4 +124,3 @@ def test_summarize_transformations_includes_metadata_notes() -> None:
     serialized = json.dumps(summary)
     assert "Safe Harbor" not in serialized
     assert "Suppressed name" not in serialized
-

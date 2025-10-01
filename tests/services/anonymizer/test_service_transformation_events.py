@@ -1,5 +1,7 @@
 """Unit tests ensuring anonymizer service accumulates transformation events."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -347,7 +349,9 @@ def test_accumulates_address_events_without_leaking_phi() -> None:
         "PATIENT_ADDRESS_CITY",
         "PATIENT_ADDRESS_POSTAL_CODE",
     }
-    captured = {event.entity_type for event in events if event.entity_type in address_entities}
+    captured = {
+        event.entity_type for event in events if event.entity_type in address_entities
+    }
     assert captured == address_entities
 
     synthesized_address = anonymized.coverages[0].address
@@ -363,7 +367,9 @@ def test_accumulates_address_events_without_leaking_phi() -> None:
     assert synthesized_address.country == "US"
 
     synthesized_events = {
-        event.entity_type: event for event in events if event.entity_type in address_entities
+        event.entity_type: event
+        for event in events
+        if event.entity_type in address_entities
     }
     for entity in address_entities:
         event = synthesized_events[entity]
@@ -373,8 +379,13 @@ def test_accumulates_address_events_without_leaking_phi() -> None:
         assert "Metropolis" not in event.surrogate
         assert "10101" not in event.surrogate
 
-    assert synthesized_address.address_line1 in synthesized_events["PATIENT_ADDRESS_STREET"].surrogate
-    assert synthesized_address.city in synthesized_events["PATIENT_ADDRESS_CITY"].surrogate
+    assert (
+        synthesized_address.address_line1
+        in synthesized_events["PATIENT_ADDRESS_STREET"].surrogate
+    )
+    assert (
+        synthesized_address.city in synthesized_events["PATIENT_ADDRESS_CITY"].surrogate
+    )
     assert (
         synthesized_address.postal_code
         in synthesized_events["PATIENT_ADDRESS_POSTAL_CODE"].surrogate
@@ -391,9 +402,9 @@ def test_identifier_fallback_hashes_and_emits_events() -> None:
         coverages=[FirestoreCoverage(member_id="MEMBER-0001")],
     )
 
-    secret = os.environ.get("ANONYMIZER_IDENTIFIER_HASH_SECRET", "ai-chat-ehr-anonymizer").encode(
-        "utf-8"
-    )
+    secret = os.environ.get(
+        "ANONYMIZER_IDENTIFIER_HASH_SECRET", "ai-chat-ehr-anonymizer"
+    ).encode("utf-8")
 
     def _expected(value: str) -> str:
         return hmac.new(secret, value.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -420,16 +431,26 @@ def test_identifier_fallback_hashes_and_emits_events() -> None:
     assert captured == set(expected_hashes)
     for event in events:
         assert event.action == "pseudonymize"
-        assert event.surrogate == "Applied HMAC pseudonymization fallback for identifier."
+        assert (
+            event.surrogate == "Applied HMAC pseudonymization fallback for identifier."
+        )
 
     document_id = "doc-42"
-    facility_uuid_first = _coerce_uuid(anonymized.facility_id, fallback=f"facility:{document_id}")
-    facility_uuid_second = _coerce_uuid(anonymized.facility_id, fallback=f"facility:{document_id}")
+    facility_uuid_first = _coerce_uuid(
+        anonymized.facility_id, fallback=f"facility:{document_id}"
+    )
+    facility_uuid_second = _coerce_uuid(
+        anonymized.facility_id, fallback=f"facility:{document_id}"
+    )
     assert facility_uuid_first == facility_uuid_second
     assert facility_uuid_first == uuid5(NAMESPACE_URL, anonymized.facility_id.strip())
 
-    tenant_uuid_first = _coerce_uuid(anonymized.tenant_id, fallback=f"tenant:{document_id}")
-    tenant_uuid_second = _coerce_uuid(anonymized.tenant_id, fallback=f"tenant:{document_id}")
+    tenant_uuid_first = _coerce_uuid(
+        anonymized.tenant_id, fallback=f"tenant:{document_id}"
+    )
+    tenant_uuid_second = _coerce_uuid(
+        anonymized.tenant_id, fallback=f"tenant:{document_id}"
+    )
     assert tenant_uuid_first == tenant_uuid_second
     assert tenant_uuid_first == uuid5(NAMESPACE_URL, anonymized.tenant_id.strip())
 
@@ -441,7 +462,11 @@ def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
             "Smith": ("anon-last", "token-last", "PATIENT_LAST_NAME"),
             "M-123": ("anon-member", "token-member", "COVERAGE_MEMBER_ID"),
             "PAYER-001": ("anon-payer", "token-payer", "COVERAGE_PAYER_ID"),
-            "Acme Health": ("anon-payer-name", "token-payer-name", "COVERAGE_PAYER_NAME"),
+            "Acme Health": (
+                "anon-payer-name",
+                "token-payer-name",
+                "COVERAGE_PAYER_NAME",
+            ),
         }
     )
     document = _build_document()
@@ -461,7 +486,11 @@ def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
         "COVERAGE_PAYER_ID",
         "COVERAGE_PAYER_NAME",
     }
-    captured = {event.entity_type for event in events if event.entity_type in identifier_entities}
+    captured = {
+        event.entity_type
+        for event in events
+        if event.entity_type in identifier_entities
+    }
     assert captured == identifier_entities
 
     originals = {
@@ -574,12 +603,14 @@ def test_anonymize_coverage_is_deterministic_for_phi_fields() -> None:
     first_surrogates = {
         (event.entity_type, event.surrogate)
         for event in first_events
-        if event.entity_type in {"COVERAGE_MEMBER_ID", "COVERAGE_PAYER_NAME", "COVERAGE_PAYER_ID"}
+        if event.entity_type
+        in {"COVERAGE_MEMBER_ID", "COVERAGE_PAYER_NAME", "COVERAGE_PAYER_ID"}
     }
     second_surrogates = {
         (event.entity_type, event.surrogate)
         for event in second_events
-        if event.entity_type in {"COVERAGE_MEMBER_ID", "COVERAGE_PAYER_NAME", "COVERAGE_PAYER_ID"}
+        if event.entity_type
+        in {"COVERAGE_MEMBER_ID", "COVERAGE_PAYER_NAME", "COVERAGE_PAYER_ID"}
     }
     assert first_surrogates == second_surrogates
 
@@ -742,11 +773,17 @@ def test_extract_address_handles_missing_state() -> None:
         "PATIENT_ADDRESS_CITY",
         "PATIENT_ADDRESS_POSTAL_CODE",
     }
-    captured = {event.entity_type for event in events if event.entity_type in synthesized_entities}
+    captured = {
+        event.entity_type
+        for event in events
+        if event.entity_type in synthesized_entities
+    }
     assert captured == synthesized_entities
 
     synthesized_events = {
-        event.entity_type: event for event in events if event.entity_type in synthesized_entities
+        event.entity_type: event
+        for event in events
+        if event.entity_type in synthesized_entities
     }
     for entity in synthesized_entities:
         event = synthesized_events[entity]
@@ -755,8 +792,13 @@ def test_extract_address_handles_missing_state() -> None:
         assert "Springfield" not in event.surrogate
         assert "99999" not in event.surrogate
 
-    assert synthesized_address.address_line1 in synthesized_events["PATIENT_ADDRESS_STREET"].surrogate
-    assert synthesized_address.city in synthesized_events["PATIENT_ADDRESS_CITY"].surrogate
+    assert (
+        synthesized_address.address_line1
+        in synthesized_events["PATIENT_ADDRESS_STREET"].surrogate
+    )
+    assert (
+        synthesized_address.city in synthesized_events["PATIENT_ADDRESS_CITY"].surrogate
+    )
     assert (
         synthesized_address.postal_code
         in synthesized_events["PATIENT_ADDRESS_POSTAL_CODE"].surrogate

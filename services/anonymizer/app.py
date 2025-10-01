@@ -58,7 +58,9 @@ def _document_surrogate_id(path_params: Mapping[str, Any]) -> str | None:
     if not token:
         return None
 
-    surrogate_uuid = uuid5(NAMESPACE_URL, f"https://chatehr.ai/anonymizer/document/{token}")
+    surrogate_uuid = uuid5(
+        NAMESPACE_URL, f"https://chatehr.ai/anonymizer/document/{token}"
+    )
     return f"doc-{surrogate_uuid}"
 
 
@@ -232,7 +234,9 @@ async def anonymize_document(
             detail="Collection and document identifiers must be non-empty strings.",
         )
 
-    patient_id, transformation_events = await process_patient(collection_token, document_token)
+    patient_id, transformation_events = await process_patient(
+        collection_token, document_token
+    )
 
     transformation_summary = summarize_transformations(transformation_events)
     aggregates = TransformationAggregates.model_validate(transformation_summary)
@@ -260,6 +264,7 @@ async def anonymize_document(
     )
 
     return response_payload
+
 
 # Placeholder routers for anonymization endpoints will be added here in the future.
 app.include_router(router)

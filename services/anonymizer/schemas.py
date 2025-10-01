@@ -11,7 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field
 class EntityActionSummary(BaseModel):
     """Summary of anonymization actions applied to a particular entity type."""
 
-    count: int = Field(..., ge=0, description="Number of transformations for the entity type.")
+    count: int = Field(
+        ..., ge=0, description="Number of transformations for the entity type."
+    )
     actions: Dict[str, int] = Field(
         default_factory=dict,
         description="Mapping of anonymization actions to their occurrence counts.",
@@ -42,7 +44,9 @@ class TransformationSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     record_id: UUID = Field(
-        ..., alias="recordId", description="Identifier of the persisted anonymized patient record."
+        ...,
+        alias="recordId",
+        description="Identifier of the persisted anonymized patient record.",
     )
     transformations: TransformationAggregates = Field(
         ..., description="Aggregated statistics describing the transformation events."
@@ -53,10 +57,12 @@ class AnonymizeResponse(BaseModel):
     """Standard response returned from the anonymization endpoint."""
 
     status: Literal["accepted"] = Field(
-        ..., description="Status indicator that the anonymization request has been accepted."
+        ...,
+        description="Status indicator that the anonymization request has been accepted.",
     )
     summary: TransformationSummary = Field(
-        ..., description="Summary of the anonymization results for the processed document."
+        ...,
+        description="Summary of the anonymization results for the processed document.",
     )
 
 
@@ -66,4 +72,3 @@ __all__ = [
     "TransformationSummary",
     "AnonymizeResponse",
 ]
-

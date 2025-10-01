@@ -1,5 +1,7 @@
 """FastAPI route tests for the anonymizer service."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import abc
@@ -23,7 +25,9 @@ if str(ROOT) not in sys.path:
 if "dotenv" not in sys.modules:
     dotenv_stub = types.ModuleType("dotenv")
 
-    def load_dotenv(*_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - stub helper
+    def load_dotenv(
+        *_args: Any, **_kwargs: Any
+    ) -> None:  # pragma: no cover - stub helper
         return None
 
     dotenv_stub.load_dotenv = load_dotenv
@@ -33,6 +37,7 @@ if "dotenv" not in sys.modules:
 # ---------------------------------------------------------------------------
 # Dependency stubs
 # ---------------------------------------------------------------------------
+
 
 class _FieldInfo:
     __slots__ = ("default", "alias", "default_factory")
@@ -51,6 +56,7 @@ class _FieldInfo:
 
 
 if "pydantic" not in sys.modules:
+
     class _BaseModelMeta(abc.ABCMeta):
         def __new__(mcls, name, bases, namespace, **kwargs):
             annotations: dict[str, Any] = {}
@@ -153,13 +159,17 @@ if "pydantic" not in sys.modules:
                 value = getattr(self, field_name)
                 if exclude_none and value is None:
                     continue
-                payload[key] = _serialize(value, by_alias=by_alias, exclude_none=exclude_none)
+                payload[key] = _serialize(
+                    value, by_alias=by_alias, exclude_none=exclude_none
+                )
             for key, value in self.__dict__.items():
                 if key in self._field_metadata:
                     continue
                 if exclude_none and value is None:
                     continue
-                payload[key] = _serialize(value, by_alias=by_alias, exclude_none=exclude_none)
+                payload[key] = _serialize(
+                    value, by_alias=by_alias, exclude_none=exclude_none
+                )
             return payload
 
         @classmethod
@@ -249,7 +259,9 @@ if "structlog" not in sys.modules:
 
     class _ProcessorsModule:  # pragma: no cover - stub behaviour
         @staticmethod
-        def add_log_level(logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+        def add_log_level(
+            logger: Any, method_name: str, event_dict: dict[str, Any]
+        ) -> dict[str, Any]:
             return event_dict
 
         class TimeStamper:  # pragma: no cover - stub behaviour
@@ -275,10 +287,14 @@ if "structlog" not in sys.modules:
         BoundLogger=_BoundLogger,
     )
 
-    def _configure(*args: Any, **kwargs: Any) -> None:  # pragma: no cover - stub behaviour
+    def _configure(
+        *args: Any, **kwargs: Any
+    ) -> None:  # pragma: no cover - stub behaviour
         return None
 
-    def _get_logger(*args: Any, **kwargs: Any) -> _BoundLogger:  # pragma: no cover - stub behaviour
+    def _get_logger(
+        *args: Any, **kwargs: Any
+    ) -> _BoundLogger:  # pragma: no cover - stub behaviour
         return _BoundLogger()
 
     structlog_stub.configure = _configure
@@ -352,7 +368,9 @@ if "fastapi" not in sys.modules:
             super().__init__(detail)
 
     class _Request:  # pragma: no cover - stub behaviour
-        def __init__(self, url: str = "http://test", path_params: dict[str, Any] | None = None) -> None:
+        def __init__(
+            self, url: str = "http://test", path_params: dict[str, Any] | None = None
+        ) -> None:
             self.url = types.SimpleNamespace(__str__=lambda self_ref: url, path="/")
             self.path_params = path_params or {}
 
@@ -457,7 +475,9 @@ if "starlette" not in sys.modules:
             self.headers: dict[str, str] = {}
             self.state = types.SimpleNamespace()
             self.client = types.SimpleNamespace(host=None)
-            self.url = types.SimpleNamespace(path="/", __str__=lambda self_ref: "http://test")
+            self.url = types.SimpleNamespace(
+                path="/", __str__=lambda self_ref: "http://test"
+            )
             self.method = "GET"
             self.scope: dict[str, Any] = {}
 
@@ -492,7 +512,10 @@ from services.anonymizer.models import TransformationEvent
 import services.anonymizer.app as app_module
 import services.anonymizer.service as service_module
 from services.anonymizer.firestore.client import FirestoreDataSource
-from services.anonymizer.storage.postgres import PatientRow as StoragePatientRow, StorageError
+from services.anonymizer.storage.postgres import (
+    PatientRow as StoragePatientRow,
+    StorageError,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -555,7 +578,9 @@ def test_anonymize_document_returns_summary(
     patient_id = uuid4()
     raw_phi = {"Alice Example", "MRN-12345"}
 
-    async def _fake_process_patient(collection: str, document_id: str) -> tuple[UUID, list[TransformationEvent]]:
+    async def _fake_process_patient(
+        collection: str, document_id: str
+    ) -> tuple[UUID, list[TransformationEvent]]:
         assert collection == "patients"
         assert document_id == "phi-12345"
         return patient_id, transformation_events
@@ -624,7 +649,9 @@ def test_problem_details_sanitize_document_identifier(
 ) -> None:
     """Exception handlers should expose sanitized problem details."""
 
-    async def _raiser(collection: str, document_id: str) -> tuple[UUID, list[TransformationEvent]]:
+    async def _raiser(
+        collection: str, document_id: str
+    ) -> tuple[UUID, list[TransformationEvent]]:
         raise exception_cls("boom", **exception_kwargs)
 
     monkeypatch.setattr(app_module, "process_patient", _raiser)
@@ -683,14 +710,18 @@ class _StubStorage:
 class _FailingFirestore(FirestoreDataSource):
     """Firestore stub that raises an unexpected runtime error."""
 
-    def get_patient(self, collection: str, document_id: str) -> Mapping[str, Any] | None:
+    def get_patient(
+        self, collection: str, document_id: str
+    ) -> Mapping[str, Any] | None:
         raise RuntimeError("network failure")
 
 
 class _ValidFirestore(FirestoreDataSource):
     """Firestore stub that returns a minimal valid patient document."""
 
-    def get_patient(self, collection: str, document_id: str) -> Mapping[str, Any] | None:
+    def get_patient(
+        self, collection: str, document_id: str
+    ) -> Mapping[str, Any] | None:
         return {"name": {"first": "Alice", "last": "Example"}}
 
 
@@ -718,7 +749,9 @@ def test_process_patient_wraps_fetch_errors_with_phase_details() -> None:
     _assert_phase(excinfo.value, "fetch")
 
 
-def test_process_patient_wraps_validation_errors_with_phase_details(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_process_patient_wraps_validation_errors_with_phase_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Validation errors should surface with the validation phase metadata."""
 
     storage = _StubStorage()
@@ -746,7 +779,9 @@ def test_process_patient_wraps_validation_errors_with_phase_details(monkeypatch:
     _assert_phase(excinfo.value, "validation")
 
 
-def test_process_patient_wraps_storage_errors_with_phase_details(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_process_patient_wraps_storage_errors_with_phase_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Storage failures should propagate with storage phase metadata."""
 
     storage = _StubStorage(error=StorageError("database unavailable"))
@@ -763,7 +798,9 @@ def test_process_patient_wraps_storage_errors_with_phase_details(monkeypatch: py
         return args[1]
 
     monkeypatch.setattr(service_module, "_anonymize_document", _fake_anonymize)
-    monkeypatch.setattr(service_module, "_convert_to_patient_row", lambda **_: sample_row)
+    monkeypatch.setattr(
+        service_module, "_convert_to_patient_row", lambda **_: sample_row
+    )
 
     with pytest.raises(service_module.PatientProcessingError) as excinfo:
         asyncio.run(
@@ -779,7 +816,9 @@ def test_process_patient_wraps_storage_errors_with_phase_details(monkeypatch: py
     _assert_phase(excinfo.value, "storage")
 
 
-def test_process_patient_logs_aggregate_transformation_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_process_patient_logs_aggregate_transformation_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Persisted patient log entries should only expose aggregate transformation data."""
 
     storage = _StubStorage()
@@ -822,13 +861,17 @@ def test_process_patient_logs_aggregate_transformation_summary(monkeypatch: pyte
         return document
 
     monkeypatch.setattr(service_module, "_anonymize_document", _fake_anonymize)
-    monkeypatch.setattr(service_module, "_convert_to_patient_row", lambda **_: sample_row)
+    monkeypatch.setattr(
+        service_module, "_convert_to_patient_row", lambda **_: sample_row
+    )
 
     class _CapturingLogger:
         def __init__(self) -> None:
             self.records: list[dict[str, Any]] = []
 
-        def bind(self, **_kwargs: Any) -> "_CapturingLogger":  # pragma: no cover - passthrough
+        def bind(
+            self, **_kwargs: Any
+        ) -> "_CapturingLogger":  # pragma: no cover - passthrough
             return self
 
         def info(self, message: str, **kwargs: Any) -> None:
@@ -867,7 +910,10 @@ def test_process_patient_logs_aggregate_transformation_summary(monkeypatch: pyte
 
     logged_summary = persisted_log["kwargs"].get("transformation_summary")
     assert logged_summary == expected_summary
-    assert persisted_log["kwargs"].get("total_transformations") == expected_summary["total_transformations"]
+    assert (
+        persisted_log["kwargs"].get("total_transformations")
+        == expected_summary["total_transformations"]
+    )
     assert (
         persisted_log["kwargs"].get("transformation_actions")
         == expected_summary["actions"]
@@ -877,4 +923,3 @@ def test_process_patient_logs_aggregate_transformation_summary(monkeypatch: pyte
         == expected_summary["entities"]
     )
     assert "Alice" not in repr(persisted_log)
-

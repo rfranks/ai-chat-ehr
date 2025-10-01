@@ -1,5 +1,7 @@
 """Unit tests for the Presidio anonymizer engine."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -55,7 +57,9 @@ if "presidio_analyzer" not in sys.modules:
             return _Registry()
 
     class RecognizerResult:  # pragma: no cover - stub
-        def __init__(self, entity_type: str, start: int, end: int, score: float, **_: object) -> None:
+        def __init__(
+            self, entity_type: str, start: int, end: int, score: float, **_: object
+        ) -> None:
             self.entity_type = entity_type
             self.start = start
             self.end = end

@@ -30,7 +30,12 @@ def _reset_storage_instances() -> Iterable[None]:
     _StubStorage.instances.clear()
 
 
-def _install_stubs(monkeypatch: pytest.MonkeyPatch, *, patient_id: UUID, events: list[TransformationEvent]) -> None:
+def _install_stubs(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    patient_id: UUID,
+    events: list[TransformationEvent],
+) -> None:
     async def _fake_process_patient(
         collection: str,
         document_id: str,
@@ -49,11 +54,17 @@ def _install_stubs(monkeypatch: pytest.MonkeyPatch, *, patient_id: UUID, events:
     monkeypatch.setattr(run_anonymizer, "process_patient", _fake_process_patient)
 
 
-def test_main_processes_fixture_and_prints_summary(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_processes_fixture_and_prints_summary(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     patient_id = uuid4()
     events = [
-        TransformationEvent(entity_type="NAME", action="replace", start=0, end=4, surrogate="HASHED"),
-        TransformationEvent(entity_type="PHONE", action="redact", start=10, end=21, surrogate="***"),
+        TransformationEvent(
+            entity_type="NAME", action="replace", start=0, end=4, surrogate="HASHED"
+        ),
+        TransformationEvent(
+            entity_type="PHONE", action="redact", start=10, end=21, surrogate="***"
+        ),
     ]
 
     _install_stubs(monkeypatch, patient_id=patient_id, events=events)
@@ -75,17 +86,23 @@ def test_main_processes_fixture_and_prints_summary(monkeypatch: pytest.MonkeyPat
     assert any(str(patient_id) in line for line in captured)
     assert any("Transformation summary:" in line for line in captured)
 
-    summary_json = "\n".join(line for line in captured if line and line.strip().startswith("{"))
+    summary_json = "\n".join(
+        line for line in captured if line and line.strip().startswith("{")
+    )
     summary = json.loads(summary_json)
     assert summary["total_transformations"] == len(events)
     assert "NAME" in summary["entities"]
     assert "PHONE" in summary["entities"]
 
-    assert _StubStorage.instances and _StubStorage.instances[0].bootstrap_schema is False
+    assert (
+        _StubStorage.instances and _StubStorage.instances[0].bootstrap_schema is False
+    )
     assert _StubStorage.instances[0].closed is True
 
 
-def test_main_bootstraps_schema_by_default(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_bootstraps_schema_by_default(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     patient_id = uuid4()
     events: list[TransformationEvent] = []
 

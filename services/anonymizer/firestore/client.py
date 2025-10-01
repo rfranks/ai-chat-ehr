@@ -27,7 +27,9 @@ class FirestoreConfigurationError(RuntimeError):
 class FirestoreDataSourceError(RuntimeError):
     """Raised when Firestore access fails in a sanitized manner."""
 
-    def __init__(self, message: str, *, context: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self, message: str, *, context: Mapping[str, Any] | None = None
+    ) -> None:
         super().__init__(message)
         self.context = dict(context or {})
 
@@ -36,7 +38,9 @@ class FirestoreDataSource(ABC):
     """Interface that encapsulates patient document retrieval from Firestore."""
 
     @abstractmethod
-    def get_patient(self, collection: str, document_id: str) -> Mapping[str, Any] | None:
+    def get_patient(
+        self, collection: str, document_id: str
+    ) -> Mapping[str, Any] | None:
         """Return the patient document from the provided collection."""
 
 
@@ -55,9 +59,13 @@ class FixtureFirestoreDataSource(FirestoreDataSource):
                 fixture_paths = discover_fixture_paths()
             fixtures = load_document_fixtures(fixture_paths)
         self._collection = collection
-        self._fixtures = {document_id: dict(payload) for document_id, payload in fixtures.items()}
+        self._fixtures = {
+            document_id: dict(payload) for document_id, payload in fixtures.items()
+        }
 
-    def get_patient(self, collection: str, document_id: str) -> Mapping[str, Any] | None:
+    def get_patient(
+        self, collection: str, document_id: str
+    ) -> Mapping[str, Any] | None:
         if collection != self._collection:
             return None
 
@@ -99,9 +107,13 @@ class CredentialedFirestoreDataSource(FirestoreDataSource):
         if self.project_id:
             kwargs["project"] = self.project_id
 
-        return firestore.Client.from_service_account_json(str(self.credentials_path), **kwargs)
+        return firestore.Client.from_service_account_json(
+            str(self.credentials_path), **kwargs
+        )
 
-    def _raise_sanitized_error(self, collection: str, document_id: str, error: Exception) -> None:
+    def _raise_sanitized_error(
+        self, collection: str, document_id: str, error: Exception
+    ) -> None:
         error_type = error.__class__.__name__
         message = (
             "Failed to fetch Firestore document '<redacted>' "
@@ -115,11 +127,17 @@ class CredentialedFirestoreDataSource(FirestoreDataSource):
         }
         raise FirestoreDataSourceError(message, context=context) from None
 
-    def get_patient(self, collection: str, document_id: str) -> Mapping[str, Any] | None:
+    def get_patient(
+        self, collection: str, document_id: str
+    ) -> Mapping[str, Any] | None:
         try:
-            document_reference = self._client.collection(collection).document(document_id)
+            document_reference = self._client.collection(collection).document(
+                document_id
+            )
             snapshot = document_reference.get()
-        except Exception as exc:  # pragma: no cover - error paths validated via unit tests
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - error paths validated via unit tests
             self._raise_sanitized_error(collection, document_id, exc)
         if not getattr(snapshot, "exists", False):
             return None

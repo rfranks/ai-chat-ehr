@@ -7,7 +7,6 @@ import time
 from collections import OrderedDict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
@@ -181,14 +180,10 @@ def test_cache_ttl_expiry(monkeypatch: pytest.MonkeyPatch, chain_app):
 
         await chain_app._set_cached_categories("ttl-key", ("ttl",))
 
-        monkeypatch.setattr(
-            chain_app.time, "monotonic", lambda: initial_time + 0.01
-        )
+        monkeypatch.setattr(chain_app.time, "monotonic", lambda: initial_time + 0.01)
         assert await chain_app._get_cached_categories("ttl-key") == ("ttl",)
 
-        monkeypatch.setattr(
-            chain_app.time, "monotonic", lambda: initial_time + 0.06
-        )
+        monkeypatch.setattr(chain_app.time, "monotonic", lambda: initial_time + 0.06)
         assert await chain_app._get_cached_categories("ttl-key") is None
 
     asyncio.run(_run())
@@ -240,9 +235,7 @@ def test_classification_cache_max_entries_override(
     asyncio.run(_run())
 
 
-def test_classification_cache_ttl_override(
-    monkeypatch: pytest.MonkeyPatch, chain_app
-):
+def test_classification_cache_ttl_override(monkeypatch: pytest.MonkeyPatch, chain_app):
     async def _run() -> None:
         settings = chain_app.ChainExecutorSettings(
             category_cache_max_entries=4,
@@ -262,14 +255,10 @@ def test_classification_cache_ttl_override(
 
         await chain_app._set_cached_categories("ttl-key", ("ttl",))
 
-        monkeypatch.setattr(
-            chain_app.time, "monotonic", lambda: initial_time + 0.01
-        )
+        monkeypatch.setattr(chain_app.time, "monotonic", lambda: initial_time + 0.01)
         assert await chain_app._get_cached_categories("ttl-key") == ("ttl",)
 
-        monkeypatch.setattr(
-            chain_app.time, "monotonic", lambda: initial_time + 0.06
-        )
+        monkeypatch.setattr(chain_app.time, "monotonic", lambda: initial_time + 0.06)
         assert await chain_app._get_cached_categories("ttl-key") is None
 
     asyncio.run(_run())

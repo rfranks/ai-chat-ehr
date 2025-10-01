@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
+
 from pathlib import Path
 import sys
 import types
@@ -27,15 +29,21 @@ if "presidio_analyzer" not in sys.modules:
 
     class _AnalyzerEngine:
         def __init__(self) -> None:
-            self.registry = types.SimpleNamespace(add_recognizer=lambda *args, **kwargs: None)
+            self.registry = types.SimpleNamespace(
+                add_recognizer=lambda *args, **kwargs: None
+            )
 
     class _Pattern:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - simple stub
+        def __init__(
+            self, *args: Any, **kwargs: Any
+        ) -> None:  # pragma: no cover - simple stub
             self.args = args
             self.kwargs = kwargs
 
     class _PatternRecognizer:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover - simple stub
+        def __init__(
+            self, *args: Any, **kwargs: Any
+        ) -> None:  # pragma: no cover - simple stub
             self.args = args
             self.kwargs = kwargs
 
@@ -62,7 +70,6 @@ from services.anonymizer.firestore.client import (
     ENV_FIXTURE_DIRECTORY,
     ENV_PROJECT_ID,
     MODE_CREDENTIALS,
-    MODE_FIXTURES,
 )
 
 
@@ -76,7 +83,9 @@ class _StubDocumentSnapshot:
 
 
 class _StubDocumentReference:
-    def __init__(self, *, snapshot: _StubDocumentSnapshot | None, error: Exception | None = None) -> None:
+    def __init__(
+        self, *, snapshot: _StubDocumentSnapshot | None, error: Exception | None = None
+    ) -> None:
         self._snapshot = snapshot
         self._error = error
 
@@ -102,10 +111,17 @@ class _StubCollectionReference:
 
 
 class _StubFirestoreClient:
-    def __init__(self, *, snapshot: _StubDocumentSnapshot | None = None, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        snapshot: _StubDocumentSnapshot | None = None,
+        error: Exception | None = None,
+    ) -> None:
         self.collection_calls: list[str] = []
         self._collection = _StubCollectionReference()
-        self._collection.set_document(_StubDocumentReference(snapshot=snapshot, error=error))
+        self._collection.set_document(
+            _StubDocumentReference(snapshot=snapshot, error=error)
+        )
 
     def collection(self, name: str) -> _StubCollectionReference:
         self.collection_calls.append(name)
@@ -128,13 +144,17 @@ def test_fixture_data_source_returns_none_for_missing_patient() -> None:
 
 
 @pytest.mark.parametrize("collection", ["clinicians", "", "Facilities"])
-def test_fixture_data_source_returns_none_for_mismatched_collection(collection: str) -> None:
+def test_fixture_data_source_returns_none_for_mismatched_collection(
+    collection: str,
+) -> None:
     data_source = FixtureFirestoreDataSource()
 
     assert data_source.get_patient(collection, "xpF51IBED5TOKMPJamWo") is None
 
 
-def test_create_firestore_data_source_defaults_to_fixture_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_firestore_data_source_defaults_to_fixture_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv(ENV_DATA_SOURCE, raising=False)
     monkeypatch.delenv(ENV_FIXTURE_DIRECTORY, raising=False)
 
@@ -143,7 +163,9 @@ def test_create_firestore_data_source_defaults_to_fixture_mode(monkeypatch: pyte
     assert isinstance(data_source, FixtureFirestoreDataSource)
 
 
-def test_create_firestore_data_source_uses_custom_fixture_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_create_firestore_data_source_uses_custom_fixture_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     fixture = tmp_path / "patients"
     fixture.mkdir()
     payload = fixture / "example.json"
@@ -157,14 +179,18 @@ def test_create_firestore_data_source_uses_custom_fixture_directory(monkeypatch:
     assert isinstance(data_source, FixtureFirestoreDataSource)
 
 
-def test_create_firestore_data_source_validates_fixture_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_firestore_data_source_validates_fixture_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv(ENV_FIXTURE_DIRECTORY, "/does/not/exist")
 
     with pytest.raises(FirestoreConfigurationError):
         create_firestore_data_source()
 
 
-def test_create_firestore_data_source_with_credentials_requires_path(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_firestore_data_source_with_credentials_requires_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv(ENV_DATA_SOURCE, MODE_CREDENTIALS)
     monkeypatch.delenv(ENV_CREDENTIALS, raising=False)
 
@@ -194,7 +220,9 @@ def test_create_firestore_data_source_with_credentials_returns_client(
     assert data_source.project_id == "example-project"
 
 
-def test_create_firestore_data_source_with_unknown_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_firestore_data_source_with_unknown_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv(ENV_DATA_SOURCE, "unknown")
 
     with pytest.raises(FirestoreConfigurationError):
@@ -220,7 +248,9 @@ def test_credentialed_firestore_data_source_returns_document(tmp_path: Path) -> 
     assert client.collection_calls == ["patients"]
 
 
-def test_credentialed_firestore_data_source_returns_none_for_missing_document(tmp_path: Path) -> None:
+def test_credentialed_firestore_data_source_returns_none_for_missing_document(
+    tmp_path: Path,
+) -> None:
     credentials_path = tmp_path / "credentials.json"
     credentials_path.write_text("{}", encoding="utf-8")
 

@@ -72,9 +72,7 @@ def discover_fixture_paths() -> list[Path]:
     if not _FIXTURE_DIRECTORY.exists():
         return []
 
-    return sorted(
-        path for path in _FIXTURE_DIRECTORY.glob("*.json") if path.is_file()
-    )
+    return sorted(path for path in _FIXTURE_DIRECTORY.glob("*.json") if path.is_file())
 
 
 __all__ = ["FixtureLoadError", "load_document_fixtures", "discover_fixture_paths"]
