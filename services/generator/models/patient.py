@@ -33,6 +33,45 @@ class PatientStatus(str, Enum):
     UNKNOWN = "Unknown"
 
 
+class EHRConnectionStatus(str, Enum):
+    """Enumerated values accepted by the ``public.ehr_connection_status`` type."""
+
+    CONNECTED = "Connected"
+    DISCONNECTED = "Disconnected"
+
+
+class SQLInsertModel(BaseModel):
+    """Shared behaviours for models that generate SQL parameters."""
+
+    model_config = ConfigDict(populate_by_name=True, validate_assignment=True)
+
+    def _sql_column_map(self) -> Dict[str, Any]:
+        """Return the raw column mapping for SQL serialization."""
+
+        return self.model_dump()
+
+    def sql_parameter_items(
+        self, *, include_primary_key: bool = True
+    ) -> Iterator[Tuple[str, Any]]:
+        """Iterate over non-null column/value pairs for SQL operations."""
+
+        column_map = self._sql_column_map()
+        for column, value in column_map.items():
+            if not include_primary_key and column == "id":
+                continue
+            if value is None:
+                continue
+            if isinstance(value, Enum):
+                yield column, value.value
+            else:
+                yield column, value
+
+    def as_parameters(self, *, include_primary_key: bool = True) -> Dict[str, Any]:
+        """Return a mapping of column names to non-null SQL parameters."""
+
+        return dict(self.sql_parameter_items(include_primary_key=include_primary_key))
+
+
 class PatientSeed(BaseModel):
     """Subset of fields participating in patient uniqueness constraints."""
 
@@ -62,10 +101,8 @@ class PatientSeed(BaseModel):
         return (self.facility_id, self.ehr_instance_id, self.ehr_external_id)
 
 
-class PatientRecord(BaseModel):
+class PatientRecord(SQLInsertModel):
     """Representation of the patient columns required by the generator."""
-
-    model_config = ConfigDict(populate_by_name=True, validate_assignment=True)
 
     id: UUID = Field(default_factory=uuid4)
     tenant_id: UUID = Field(description="Identifier of the owning tenant")
@@ -113,11 +150,7 @@ class PatientRecord(BaseModel):
 
         return self.seed.as_tuple()
 
-    def sql_parameter_items(
-        self, *, include_primary_key: bool = True
-    ) -> Iterator[Tuple[str, Any]]:
-        """Iterate over non-null column/value pairs for SQL operations."""
-
+    def _sql_column_map(self) -> Dict[str, Any]:
         column_map: Dict[str, Any] = self.model_dump(exclude={"seed"})
         column_map.update(
             {
@@ -126,26 +159,19 @@ class PatientRecord(BaseModel):
                 "ehr_external_id": self.ehr_external_id,
             }
         )
-
-        for column, value in column_map.items():
-            if not include_primary_key and column == "id":
-                continue
-            if value is None:
-                continue
-            if isinstance(value, Enum):
-                yield column, value.value
-            else:
-                yield column, value
+        return column_map
 
     def as_sql_parameters(self, *, include_primary_key: bool = True) -> Dict[str, Any]:
         """Return a mapping of column names to non-null SQL parameters."""
 
-        return dict(self.sql_parameter_items(include_primary_key=include_primary_key))
+        return self.as_parameters(include_primary_key=include_primary_key)
 
 
 __all__ = [
     "Gender",
     "PatientStatus",
+    "EHRConnectionStatus",
+    "SQLInsertModel",
     "PatientSeed",
     "PatientRecord",
 ]

@@ -43,7 +43,7 @@ def test_patient_record_serializes_sql_parameters() -> None:
         admission_time=datetime(2024, 1, 1, 9, 30, 0),
     )
 
-    params = patient.as_sql_parameters()
+    params = patient.as_parameters()
 
     assert params["tenant_id"] == patient.tenant_id
     assert params["facility_id"] == patient.facility_id
@@ -64,7 +64,7 @@ def test_patient_record_sql_parameters_respects_primary_key_flag() -> None:
         status=PatientStatus.PENDING,
     )
 
-    params = patient.as_sql_parameters(include_primary_key=False)
+    params = patient.as_parameters(include_primary_key=False)
 
     assert "id" not in params
     assert params["facility_id"] == patient.facility_id
