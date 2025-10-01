@@ -169,6 +169,10 @@ async def handle_patient_processing(
             "due to an upstream error."
         )
 
+    processing_details = getattr(exc, "details", None)
+    if processing_details:
+        extras["processingError"] = dict(processing_details)
+
     status_code = status.HTTP_502_BAD_GATEWAY
     return _problem_response(
         request=request,

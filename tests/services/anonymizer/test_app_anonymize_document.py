@@ -20,6 +20,16 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+if "dotenv" not in sys.modules:
+    dotenv_stub = types.ModuleType("dotenv")
+
+    def load_dotenv(*_args: Any, **_kwargs: Any) -> None:  # pragma: no cover - stub helper
+        return None
+
+    dotenv_stub.load_dotenv = load_dotenv
+    sys.modules["dotenv"] = dotenv_stub
+
+
 # ---------------------------------------------------------------------------
 # Dependency stubs
 # ---------------------------------------------------------------------------
@@ -480,6 +490,9 @@ if "starlette" not in sys.modules:
 
 from services.anonymizer.models import TransformationEvent
 import services.anonymizer.app as app_module
+import services.anonymizer.service as service_module
+from services.anonymizer.firestore.client import FirestoreDataSource
+from services.anonymizer.storage.postgres import PatientRow as StoragePatientRow, StorageError
 
 
 # ---------------------------------------------------------------------------
@@ -572,39 +585,47 @@ def test_anonymize_document_returns_summary(
 
 
 @pytest.mark.parametrize(
-    "exception_cls, handler, status_code, type_suffix",
+    "exception_cls, exception_kwargs, handler, status_code, type_suffix, expected_processing_error",
     [
         (
             app_module.PatientNotFoundError,
+            {},
             app_module.handle_patient_not_found,
             app_module.status.HTTP_404_NOT_FOUND,
             "patient-not-found",
+            None,
         ),
         (
             app_module.DuplicatePatientError,
+            {},
             app_module.handle_duplicate_patient,
             app_module.status.HTTP_409_CONFLICT,
             "duplicate-patient",
+            None,
         ),
         (
             app_module.PatientProcessingError,
+            {"phase": "validation"},
             app_module.handle_patient_processing,
             app_module.status.HTTP_502_BAD_GATEWAY,
             "patient-processing",
+            {"phase": "validation"},
         ),
     ],
 )
 def test_problem_details_sanitize_document_identifier(
     monkeypatch: pytest.MonkeyPatch,
     exception_cls: type[Exception],
+    exception_kwargs: dict[str, Any],
     handler: Callable[..., Any],
     status_code: int,
     type_suffix: str,
+    expected_processing_error: dict[str, Any] | None,
 ) -> None:
     """Exception handlers should expose sanitized problem details."""
 
     async def _raiser(collection: str, document_id: str) -> tuple[UUID, list[TransformationEvent]]:
-        raise exception_cls("boom")
+        raise exception_cls("boom", **exception_kwargs)
 
     monkeypatch.setattr(app_module, "process_patient", _raiser)
 
@@ -617,7 +638,7 @@ def test_problem_details_sanitize_document_identifier(
         path_params={"document_id": "Sensitive-42"},
     )
 
-    response = asyncio.run(handler(request, exception_cls("boom")))
+    response = asyncio.run(handler(request, exception_cls("boom", **exception_kwargs)))
     assert response.status_code == status_code
 
     body = response.content
@@ -628,4 +649,132 @@ def test_problem_details_sanitize_document_identifier(
     if surrogate is not None:
         assert surrogate in detail
     assert "Sensitive-42" not in detail
+    if expected_processing_error is None:
+        assert "processingError" not in body
+    else:
+        assert body.get("processingError") == expected_processing_error
+        serialized = json.dumps(body.get("processingError"))
+        assert "Sensitive-42" not in serialized
+
+
+class _StubAnonymizer:
+    """Minimal anonymizer implementation returning values unchanged."""
+
+    def anonymize(self, value: str, collect_events: bool = False):
+        if collect_events:
+            return value, []
+        return value
+
+
+@dataclass
+class _StubStorage:
+    """Storage stub that can simulate persistence failures."""
+
+    error: Exception | None = None
+    result_id: UUID | None = None
+
+    def insert_patient(self, record: StoragePatientRow) -> UUID:
+        if self.error is not None:
+            raise self.error
+        self.result_id = uuid4()
+        return self.result_id
+
+
+class _FailingFirestore(FirestoreDataSource):
+    """Firestore stub that raises an unexpected runtime error."""
+
+    def get_patient(self, collection: str, document_id: str) -> Mapping[str, Any] | None:
+        raise RuntimeError("network failure")
+
+
+class _ValidFirestore(FirestoreDataSource):
+    """Firestore stub that returns a minimal valid patient document."""
+
+    def get_patient(self, collection: str, document_id: str) -> Mapping[str, Any] | None:
+        return {"name": {"first": "Alice", "last": "Example"}}
+
+
+def _assert_phase(exc: service_module.PatientProcessingError, phase: str) -> None:
+    assert exc.phase == phase
+    assert dict(exc.details) == {"phase": phase}
+
+
+def test_process_patient_wraps_fetch_errors_with_phase_details() -> None:
+    """Unexpected Firestore failures should surface as fetch phase errors."""
+
+    storage = _StubStorage()
+
+    with pytest.raises(service_module.PatientProcessingError) as excinfo:
+        asyncio.run(
+            service_module.process_patient(
+                "patients",
+                "doc-123",
+                firestore=_FailingFirestore(),
+                anonymizer=_StubAnonymizer(),
+                storage=storage,
+            )
+        )
+
+    _assert_phase(excinfo.value, "fetch")
+
+
+def test_process_patient_wraps_validation_errors_with_phase_details(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Validation errors should surface with the validation phase metadata."""
+
+    storage = _StubStorage()
+
+    def _raise_validation(cls, payload):  # pragma: no cover - deterministic stub
+        raise service_module.ValidationError("invalid payload")
+
+    monkeypatch.setattr(
+        service_module.FirestorePatientDocument,
+        "model_validate",
+        classmethod(_raise_validation),
+    )
+
+    with pytest.raises(service_module.PatientProcessingError) as excinfo:
+        asyncio.run(
+            service_module.process_patient(
+                "patients",
+                "doc-456",
+                firestore=_ValidFirestore(),
+                anonymizer=_StubAnonymizer(),
+                storage=storage,
+            )
+        )
+
+    _assert_phase(excinfo.value, "validation")
+
+
+def test_process_patient_wraps_storage_errors_with_phase_details(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Storage failures should propagate with storage phase metadata."""
+
+    storage = _StubStorage(error=StorageError("database unavailable"))
+    sample_row = StoragePatientRow(
+        tenant_id=uuid4(),
+        facility_id=uuid4(),
+        name_first="Anon",
+        name_last="Patient",
+        gender="unknown",
+        status="inactive",
+    )
+
+    def _fake_anonymize(*args, **_kwargs):  # pragma: no cover - deterministic stub
+        return args[1]
+
+    monkeypatch.setattr(service_module, "_anonymize_document", _fake_anonymize)
+    monkeypatch.setattr(service_module, "_convert_to_patient_row", lambda **_: sample_row)
+
+    with pytest.raises(service_module.PatientProcessingError) as excinfo:
+        asyncio.run(
+            service_module.process_patient(
+                "patients",
+                "doc-789",
+                firestore=_ValidFirestore(),
+                anonymizer=_StubAnonymizer(),
+                storage=storage,
+            )
+        )
+
+    _assert_phase(excinfo.value, "storage")
 
