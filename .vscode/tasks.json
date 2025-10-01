@@ -132,33 +132,6 @@
             "problemMatcher": [],
             "dependsOn": "Install dependencies",
             "dependsOrder": "sequence"
-        },
-        {
-            "label": "Run Anonymizer",
-            "type": "process",
-            "command": "${command:python.interpreterPath}",
-            "args": [
-                "-m",
-                "uvicorn",
-                "services.anonymizer.main:app",
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "8004",
-                "--reload"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "group": "Microservices",
-                "close": true
-            },
-            "problemMatcher": [],
-            "dependsOn": "Install dependencies",
-            "dependsOrder": "sequence"
         }
     ]
 }
