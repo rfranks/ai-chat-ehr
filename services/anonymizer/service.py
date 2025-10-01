@@ -9,9 +9,15 @@ from uuid import UUID, NAMESPACE_URL, uuid5
 
 from pydantic import ValidationError
 
+from shared.observability.logger import get_logger
+
 from services.anonymizer.firestore.client import (
     FirestoreDataSource,
     create_firestore_data_source,
+)
+from services.anonymizer.logging_utils import (
+    scrub_for_logging,
+    summarize_patient_document,
 )
 from services.anonymizer.models.firestore import (
     FirestoreAddress,
@@ -55,6 +61,8 @@ class _ServiceDependencies:
 
 
 _dependencies: _ServiceDependencies | None = None
+
+logger = get_logger(__name__)
 
 
 def configure_service(
@@ -118,6 +126,21 @@ async def process_patient(
     except ValidationError as exc:  # pragma: no cover - defensive validation
         raise PatientProcessingError("Patient document is malformed and cannot be processed.") from exc
 
+    logger.info(
+        "Fetched patient document metadata from Firestore.",
+        event="anonymizer.patient.document_loaded",
+        firestore_reference=scrub_for_logging(
+            {
+                "collection": collection,
+                "document_id": document_id,
+                "collection_length": len(collection),
+                "document_id_length": len(document_id),
+            },
+            allow_keys={"collection_length", "document_id_length"},
+        ),
+        document_summary=summarize_patient_document(document),
+    )
+
     anonymized = _anonymize_document(deps.anonymizer, document)
     patient_row = _convert_to_patient_row(
         original=document,
@@ -126,7 +149,14 @@ async def process_patient(
     )
 
     try:
-        return deps.storage.insert_patient(patient_row)
+        patient_id = deps.storage.insert_patient(patient_row)
+        logger.info(
+            "Persisted anonymized patient record.",
+            event="anonymizer.patient.persisted",
+            record=scrub_for_logging({"record_id": patient_id}),
+            patient_row=scrub_for_logging(patient_row),
+        )
+        return patient_id
     except ConstraintViolationError as exc:
         raise DuplicatePatientError(
             "An anonymized patient record already exists for this facility and EHR source.",

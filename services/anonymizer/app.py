@@ -15,6 +15,7 @@ from shared.observability.middleware import (
     RequestTimingMiddleware,
 )
 
+from services.anonymizer.logging_utils import scrub_for_logging
 from services.anonymizer.reporting import summarize_transformations
 from services.anonymizer.service import (
     DuplicatePatientError,
@@ -30,6 +31,8 @@ logger = get_logger(__name__)
 SERVICE_NAME = "anonymizer"
 
 configure_logging(service_name=SERVICE_NAME)
+
+logger = get_logger(__name__)
 
 app = FastAPI(title="Anonymizer Service")
 router = APIRouter(prefix="/anonymizer", tags=["anonymizer"])
@@ -226,6 +229,21 @@ async def anonymize_document(
         "recordId": str(patient_id),
         "transformations": summary,
     }
+
+    logger.info(
+        "Accepted anonymizer request for processing.",
+        event="anonymizer.document.accepted",
+        request=scrub_for_logging(
+            {
+                "collection": collection_token,
+                "document_id": document_token,
+                "collection_length": len(collection_token),
+                "document_id_length": len(document_token),
+            },
+            allow_keys={"collection_length", "document_id_length"},
+        ),
+        response=scrub_for_logging(summary_payload, allow_keys={"recordId", "status"}),
+    )
 
     return {
         "status": "accepted",
