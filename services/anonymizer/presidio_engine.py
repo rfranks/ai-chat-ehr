@@ -11,6 +11,8 @@ from typing import Callable, Iterable, Mapping, MutableSequence
 
 from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer, RecognizerResult
 
+from .models import TransformationEvent
+
 
 class AnonymizationAction(str, Enum):
     """Enumeration of supported anonymization strategies."""
@@ -235,11 +237,18 @@ class PresidioAnonymizerEngine:
         if self._config.default_action is AnonymizationAction.SYNTHESIZE and not synthesizer:
             self._synthesizer = OpenAILLMSynthesizer(model=self._config.llm_model)
 
-    def anonymize(self, text: str, *, language: str = "en") -> str:
+    def anonymize(
+        self,
+        text: str,
+        *,
+        language: str = "en",
+        collect_events: bool = False,
+    ) -> str | tuple[str, list[TransformationEvent]]:
         """Apply Safe Harbor anonymization policies to ``text``."""
 
         results = self._analyzer.analyze(text=text, language=language)
         replacements: MutableSequence[tuple[int, int, str]] = []
+        events: list[TransformationEvent] = []
 
         occupied: list[tuple[int, int]] = []
         for result in sorted(results, key=lambda r: (r.start, -r.end)):
@@ -262,13 +271,31 @@ class PresidioAnonymizerEngine:
 
             replacements.append((result.start, result.end, replacement))
             occupied.append((result.start, result.end))
+            if collect_events:
+                events.append(
+                    TransformationEvent(
+                        entity_type=result.entity_type,
+                        action=action.value,
+                        start=result.start,
+                        end=result.end,
+                        surrogate=self._preview_surrogate(replacement),
+                    )
+                )
 
         anonymized_text = text
         for start, end, replacement in sorted(replacements, key=lambda r: r[0], reverse=True):
             anonymized_text = anonymized_text[:start] + replacement + anonymized_text[end:]
 
         anonymized_text = self._generalize_ages(anonymized_text)
+        if collect_events:
+            return anonymized_text, events
         return anonymized_text
+
+    @staticmethod
+    def _preview_surrogate(value: str, *, max_length: int = 32) -> str:
+        if len(value) <= max_length:
+            return value
+        return value[: max(0, max_length - 1)] + "…"
 
     def _should_anonymize(self, result: RecognizerResult) -> bool:
         return result.entity_type in SAFE_HARBOR_ENTITIES
