@@ -271,8 +271,22 @@ def summarize_patient_document(
     ):
         data = document.model_dump(mode="python")
     elif _RuntimeFirestorePatientDocument is not None:
-        model = _RuntimeFirestorePatientDocument.model_validate(document)
-        data = model.model_dump(mode="python")
+        source_mapping = document if isinstance(document, Mapping) else None
+        try:
+            model = _RuntimeFirestorePatientDocument.model_validate(document)
+        except Exception:  # pragma: no cover - tolerate partial payloads
+            if isinstance(document, Mapping):
+                data = document
+            else:
+                raise
+        else:
+            model_data = model.model_dump(mode="python")
+            if source_mapping is not None:
+                merged: dict[str, Any] = dict(source_mapping)
+                merged.update(model_data)
+                data = merged
+            else:
+                data = model_data
     elif isinstance(document, Mapping):
         data = document
     else:  # pragma: no cover - defensive guard for unexpected types

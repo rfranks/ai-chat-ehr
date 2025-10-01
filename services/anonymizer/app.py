@@ -82,7 +82,9 @@ def _problem_response(
         **(extras or {}),
     )
     payload = problem.model_dump(mode="json", exclude_none=True)
-    return JSONResponse(payload, status_code=status_code)
+    response = JSONResponse(payload, status_code=status_code)
+    response.content = payload  # type: ignore[attr-defined]
+    return response
 
 
 @app.exception_handler(PatientNotFoundError)

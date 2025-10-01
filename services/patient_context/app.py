@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, status
+from fastapi.responses import JSONResponse
 
 from repositories.emr import EMRRepository
 from services.patient_context.mappers import (
@@ -29,6 +30,16 @@ _repository = EMRRepository()
 app.add_middleware(RequestTimingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 register_exception_handlers(app)
+
+
+@app.exception_handler(HTTPException)
+async def _handle_http_exception(
+    _request: object, exc: HTTPException
+) -> JSONResponse:
+    """Return a minimal RFC 7231 style payload for ``HTTPException`` errors."""
+
+    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    return JSONResponse({"detail": detail}, status_code=exc.status_code)
 
 
 def get_repository() -> EMRRepository:
