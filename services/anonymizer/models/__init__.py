@@ -8,6 +8,7 @@ from .firestore import (  # noqa: F401
     FirestorePatientDocument,
 )
 from .postgres import PatientRow  # noqa: F401
+from .transformation_event import TransformationEvent  # noqa: F401
 
 __all__ = [
     "FirestoreAddress",
@@ -16,4 +17,5 @@ __all__ = [
     "FirestoreName",
     "FirestorePatientDocument",
     "PatientRow",
+    "TransformationEvent",
 ]
