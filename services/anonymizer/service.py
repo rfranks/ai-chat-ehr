@@ -19,6 +19,7 @@ from services.anonymizer.logging_utils import (
     scrub_for_logging,
     summarize_patient_document,
 )
+from services.anonymizer.models import TransformationEvent
 from services.anonymizer.models.firestore import (
     FirestoreAddress,
     FirestoreCoverage,
@@ -141,7 +142,12 @@ async def process_patient(
         document_summary=summarize_patient_document(document),
     )
 
-    anonymized = _anonymize_document(deps.anonymizer, document)
+    transformation_events: list[TransformationEvent] = []
+    anonymized = _anonymize_document(
+        deps.anonymizer,
+        document,
+        transformation_events,
+    )
     patient_row = _convert_to_patient_row(
         original=document,
         anonymized=anonymized,
@@ -155,6 +161,7 @@ async def process_patient(
             event="anonymizer.patient.persisted",
             record=scrub_for_logging({"record_id": patient_id}),
             patient_row=scrub_for_logging(patient_row),
+            transformation_event_count=len(transformation_events),
         )
         return patient_id
     except ConstraintViolationError as exc:
@@ -183,80 +190,134 @@ def _resolve_dependencies(
 
 
 def _anonymize_document(
-    engine: PresidioAnonymizerEngine, document: FirestorePatientDocument
+    engine: PresidioAnonymizerEngine,
+    document: FirestorePatientDocument,
+    event_accumulator: list[TransformationEvent] | None = None,
 ) -> FirestorePatientDocument:
     anonymized = document.model_copy(deep=True)
 
-    anonymized.name.first = _anonymize_text(engine, anonymized.name.first)
-    anonymized.name.middle = _anonymize_text(engine, anonymized.name.middle)
-    anonymized.name.last = _anonymize_text(engine, anonymized.name.last)
-    anonymized.name.prefix = _anonymize_text(engine, anonymized.name.prefix)
-    anonymized.name.suffix = _anonymize_text(engine, anonymized.name.suffix)
+    anonymized.name.first = _anonymize_text(engine, anonymized.name.first, event_accumulator)
+    anonymized.name.middle = _anonymize_text(engine, anonymized.name.middle, event_accumulator)
+    anonymized.name.last = _anonymize_text(engine, anonymized.name.last, event_accumulator)
+    anonymized.name.prefix = _anonymize_text(engine, anonymized.name.prefix, event_accumulator)
+    anonymized.name.suffix = _anonymize_text(engine, anonymized.name.suffix, event_accumulator)
 
     if anonymized.facility_name:
-        anonymized.facility_name = _anonymize_text(engine, anonymized.facility_name)
+        anonymized.facility_name = _anonymize_text(
+            engine,
+            anonymized.facility_name,
+            event_accumulator,
+        )
     if anonymized.facility_id:
-        anonymized.facility_id = _anonymize_text(engine, anonymized.facility_id)
+        anonymized.facility_id = _anonymize_text(
+            engine,
+            anonymized.facility_id,
+            event_accumulator,
+        )
     if anonymized.tenant_name:
-        anonymized.tenant_name = _anonymize_text(engine, anonymized.tenant_name)
+        anonymized.tenant_name = _anonymize_text(
+            engine,
+            anonymized.tenant_name,
+            event_accumulator,
+        )
     if anonymized.tenant_id:
-        anonymized.tenant_id = _anonymize_text(engine, anonymized.tenant_id)
+        anonymized.tenant_id = _anonymize_text(
+            engine,
+            anonymized.tenant_id,
+            event_accumulator,
+        )
 
     if anonymized.ehr:
-        anonymized.ehr.provider = _anonymize_text(engine, anonymized.ehr.provider)
-        anonymized.ehr.instance_id = _anonymize_text(engine, anonymized.ehr.instance_id)
-        anonymized.ehr.patient_id = _anonymize_text(engine, anonymized.ehr.patient_id)
-        anonymized.ehr.facility_id = _anonymize_text(engine, anonymized.ehr.facility_id)
+        anonymized.ehr.provider = _anonymize_text(
+            engine,
+            anonymized.ehr.provider,
+            event_accumulator,
+        )
+        anonymized.ehr.instance_id = _anonymize_text(
+            engine,
+            anonymized.ehr.instance_id,
+            event_accumulator,
+        )
+        anonymized.ehr.patient_id = _anonymize_text(
+            engine,
+            anonymized.ehr.patient_id,
+            event_accumulator,
+        )
+        anonymized.ehr.facility_id = _anonymize_text(
+            engine,
+            anonymized.ehr.facility_id,
+            event_accumulator,
+        )
 
     anonymized.coverages = [
-        _anonymize_coverage(engine, coverage) for coverage in anonymized.coverages
+        _anonymize_coverage(engine, coverage, event_accumulator)
+        for coverage in anonymized.coverages
     ]
 
     return anonymized
 
 
 def _anonymize_coverage(
-    engine: PresidioAnonymizerEngine, coverage: FirestoreCoverage
+    engine: PresidioAnonymizerEngine,
+    coverage: FirestoreCoverage,
+    event_accumulator: list[TransformationEvent] | None = None,
 ) -> FirestoreCoverage:
     coverage = coverage.model_copy(deep=True)
 
-    coverage.member_id = _anonymize_text(engine, coverage.member_id)
-    coverage.payer_name = _anonymize_text(engine, coverage.payer_name)
-    coverage.payer_id = _anonymize_text(engine, coverage.payer_id)
+    coverage.member_id = _anonymize_text(engine, coverage.member_id, event_accumulator)
+    coverage.payer_name = _anonymize_text(engine, coverage.payer_name, event_accumulator)
+    coverage.payer_id = _anonymize_text(engine, coverage.payer_id, event_accumulator)
     coverage.relationship_to_subscriber = _anonymize_text(
-        engine, coverage.relationship_to_subscriber
+        engine,
+        coverage.relationship_to_subscriber,
+        event_accumulator,
     )
-    coverage.first_name = _anonymize_text(engine, coverage.first_name)
-    coverage.last_name = _anonymize_text(engine, coverage.last_name)
-    coverage.gender = _anonymize_text(engine, coverage.gender)
-    coverage.alt_payer_name = _anonymize_text(engine, coverage.alt_payer_name)
-    coverage.insurance_type = _anonymize_text(engine, coverage.insurance_type)
+    coverage.first_name = _anonymize_text(engine, coverage.first_name, event_accumulator)
+    coverage.last_name = _anonymize_text(engine, coverage.last_name, event_accumulator)
+    coverage.gender = _anonymize_text(engine, coverage.gender, event_accumulator)
+    coverage.alt_payer_name = _anonymize_text(engine, coverage.alt_payer_name, event_accumulator)
+    coverage.insurance_type = _anonymize_text(engine, coverage.insurance_type, event_accumulator)
 
     if coverage.address:
-        coverage.address = _anonymize_address(engine, coverage.address)
+        coverage.address = _anonymize_address(
+            engine,
+            coverage.address,
+            event_accumulator,
+        )
 
     return coverage
 
 
 def _anonymize_address(
-    engine: PresidioAnonymizerEngine, address: FirestoreAddress
+    engine: PresidioAnonymizerEngine,
+    address: FirestoreAddress,
+    event_accumulator: list[TransformationEvent] | None = None,
 ) -> FirestoreAddress:
     address = address.model_copy(deep=True)
 
-    address.address_line1 = _anonymize_text(engine, address.address_line1)
-    address.address_line2 = _anonymize_text(engine, address.address_line2)
-    address.city = _anonymize_text(engine, address.city)
-    address.state = _anonymize_text(engine, address.state)
-    address.postal_code = _anonymize_text(engine, address.postal_code)
-    address.country = _anonymize_text(engine, address.country)
+    address.address_line1 = _anonymize_text(engine, address.address_line1, event_accumulator)
+    address.address_line2 = _anonymize_text(engine, address.address_line2, event_accumulator)
+    address.city = _anonymize_text(engine, address.city, event_accumulator)
+    address.state = _anonymize_text(engine, address.state, event_accumulator)
+    address.postal_code = _anonymize_text(engine, address.postal_code, event_accumulator)
+    address.country = _anonymize_text(engine, address.country, event_accumulator)
 
     return address
 
 
-def _anonymize_text(engine: PresidioAnonymizerEngine, value: str | None) -> str | None:
+def _anonymize_text(
+    engine: PresidioAnonymizerEngine,
+    value: str | None,
+    event_accumulator: list[TransformationEvent] | None = None,
+) -> str | None:
     if not value:
         return value
-    return engine.anonymize(value)
+    if event_accumulator is None:
+        return engine.anonymize(value)
+
+    anonymized_text, events = engine.anonymize(value, collect_events=True)
+    event_accumulator.extend(events)
+    return anonymized_text
 
 
 def _convert_to_patient_row(
