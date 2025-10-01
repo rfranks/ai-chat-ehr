@@ -67,6 +67,77 @@ def scrub_for_logging(
         allowed.update(key.lower() for key in allow_keys)
 
     seen: set[int] = set()
+    transformation_event_keys = frozenset({"entity_type", "action", "start", "end", "surrogate"})
+
+    def _coerce_transformation_event(obj: Any) -> Mapping[str, Any] | None:
+        """Return a mapping when ``obj`` looks like a TransformationEvent."""
+
+        def _has_required_keys(payload: Mapping[str, Any]) -> bool:
+            keys = {str(key).lower() for key in payload.keys()}
+            return transformation_event_keys.issubset(keys)
+
+        if hasattr(obj, "model_dump"):
+            try:
+                payload = obj.model_dump(mode="python")  # type: ignore[call-arg]
+            except Exception:  # pragma: no cover - defensive guard against custom models
+                payload = None
+            if isinstance(payload, Mapping) and _has_required_keys(payload):
+                return payload
+
+        if is_dataclass(obj):
+            field_names = {name.lower() for name in getattr(obj, "__dataclass_fields__", {})}
+            if transformation_event_keys.issubset(field_names):
+                marker = id(obj)
+                if marker in seen:
+                    return None
+                seen.add(marker)
+                try:
+                    payload = asdict(obj)
+                finally:
+                    seen.remove(marker)
+                if isinstance(payload, Mapping) and _has_required_keys(payload):
+                    return payload
+
+        if isinstance(obj, Mapping) and _has_required_keys(obj):
+            return obj
+
+        return None
+
+    def _scrub_transformation_event(payload: Mapping[str, Any], depth: int) -> Mapping[str, Any]:
+        sanitized: dict[str, Any] = {"__type__": "TransformationEvent"}
+
+        entity = payload.get("entity_type") or payload.get("entity") or "UNKNOWN"
+        action = payload.get("action") or payload.get("strategy") or "unknown"
+        sanitized["entity_type"] = str(entity)
+        sanitized["action"] = str(action)
+
+        for index_key in ("start", "end"):
+            value = payload.get(index_key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                sanitized[index_key] = value
+
+        start = sanitized.get("start")
+        end = sanitized.get("end")
+        if isinstance(start, int) and isinstance(end, int) and end >= start:
+            sanitized["span_length"] = end - start
+
+        surrogate = payload.get("surrogate")
+        if surrogate is None:
+            sanitized["surrogate_present"] = False
+        else:
+            sanitized["surrogate_present"] = True
+            if isinstance(surrogate, (str, bytes, bytearray)):
+                sanitized["surrogate_length"] = len(surrogate)
+            sanitized["surrogate"] = _scrub(surrogate, depth - 1)
+
+        for key, value in payload.items():
+            key_str = str(key)
+            lowered = key_str.lower()
+            if lowered in {"entity_type", "entity", "action", "strategy", "start", "end", "surrogate"}:
+                continue
+            sanitized[key_str] = _scrub(value, depth - 1)
+
+        return sanitized
 
     def _preserve_allowed(value: Any, depth: int) -> Any:
         if value is None or isinstance(value, (bool, int, float)):
@@ -85,6 +156,9 @@ def scrub_for_logging(
             return redaction
         if obj is None or isinstance(obj, (bool, int, float)):
             return obj
+        event_payload = _coerce_transformation_event(obj)
+        if event_payload is not None:
+            return _scrub_transformation_event(event_payload, depth)
         if isinstance(obj, Enum):
             enum_value = obj.value
             if isinstance(enum_value, (str, int, float, bool)):
@@ -179,6 +253,21 @@ def summarize_patient_document(
 
     coverage_items = list(_coverage_iter())
 
+    transformation_events = data.get("transformation_events") or []
+    if isinstance(transformation_events, Mapping):
+        transformation_event_count = transformation_events.get("count")
+        transformation_event_count = (
+            transformation_event_count
+            if isinstance(transformation_event_count, int)
+            else 0
+        )
+    elif isinstance(transformation_events, Collection) and not isinstance(
+        transformation_events, (str, bytes, bytearray, Mapping)
+    ):
+        transformation_event_count = len(transformation_events)
+    else:
+        transformation_event_count = 0
+
     return {
         "name_components": name_components,
         "has_dob": bool(data.get("dob")),
@@ -189,6 +278,8 @@ def summarize_patient_document(
         "ehr_metadata_present": bool(data.get("ehr")),
         "facility_metadata_present": bool(data.get("facility_id") or data.get("facility_name")),
         "tenant_metadata_present": bool(data.get("tenant_id") or data.get("tenant_name")),
+        "transformation_event_count": transformation_event_count,
+        "transformation_summary_present": bool(data.get("transformation_summary")),
     }
 
 
