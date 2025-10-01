@@ -23,6 +23,7 @@ from services.anonymizer.logging_utils import (
     scrub_for_logging,
     summarize_patient_document,
 )
+from services.anonymizer.reporting import summarize_transformations
 from services.anonymizer.models import TransformationEvent
 from services.anonymizer.models.firestore import (
     FirestoreAddress,
@@ -412,6 +413,8 @@ async def process_patient(
         event_accumulator=transformation_events,
     )
 
+    transformation_summary = summarize_transformations(transformation_events)
+
     try:
         patient_id = deps.storage.insert_patient(patient_row)
         logger.info(
@@ -420,6 +423,10 @@ async def process_patient(
             record=scrub_for_logging({"record_id": patient_id}),
             patient_row=scrub_for_logging(patient_row),
             transformation_event_count=len(transformation_events),
+            total_transformations=transformation_summary["total_transformations"],
+            transformation_actions=scrub_for_logging(transformation_summary["actions"]),
+            transformation_entities=scrub_for_logging(transformation_summary["entities"]),
+            transformation_summary=scrub_for_logging(transformation_summary),
         )
         return patient_id, transformation_events
     except ConstraintViolationError as exc:
