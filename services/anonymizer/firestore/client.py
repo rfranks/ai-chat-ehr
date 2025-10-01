@@ -166,7 +166,8 @@ def _load_fixture_paths_from_env() -> Iterable[Path] | None:
 def create_firestore_data_source() -> FirestoreDataSource:
     """Return a configured Firestore data source based on environment variables."""
 
-    mode = os.getenv(ENV_DATA_SOURCE, MODE_FIXTURES).lower()
+    raw_mode = os.getenv(ENV_DATA_SOURCE)
+    mode = (raw_mode.strip() if raw_mode is not None else MODE_FIXTURES).lower()
 
     if mode == MODE_FIXTURES:
         fixture_paths = _load_fixture_paths_from_env()
