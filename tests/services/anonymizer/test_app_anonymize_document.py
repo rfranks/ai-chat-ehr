@@ -289,12 +289,12 @@ if "structlog" not in sys.modules:
 
     def _configure(
         *args: Any, **kwargs: Any
-    ) -> None:  # pragma: no cover - stub behaviour
+    ) -> None:  # pragma: no cover - stub behavior
         return None
 
     def _get_logger(
         *args: Any, **kwargs: Any
-    ) -> _BoundLogger:  # pragma: no cover - stub behaviour
+    ) -> _BoundLogger:  # pragma: no cover - stub behavior
         return _BoundLogger()
 
     structlog_stub.configure = _configure
@@ -367,7 +367,7 @@ if "fastapi" not in sys.modules:
             self.detail = detail
             super().__init__(detail)
 
-    class _Request:  # pragma: no cover - stub behaviour
+    class _Request:  # pragma: no cover - stub behavior
         def __init__(
             self, url: str = "http://test", path_params: dict[str, Any] | None = None
         ) -> None:
