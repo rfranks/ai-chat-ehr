@@ -2,20 +2,78 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from shared.models import PatientRecord
-
 __all__ = [
-    "FirestoreMailingAddress",
+    "FirestoreCoverageAddress",
+    "FirestoreCoverage",
+    "FirestoreEHRMetadata",
+    "FirestoreName",
     "FirestoreNormalizedPatient",
     "FirestorePatientDocumentData",
     "FirestorePatientDocumentSnapshot",
     "PipelinePatientRecord",
 ]
+
+
+class FirestoreName(BaseModel):
+    """Structured patient name information captured in Firestore."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    prefix: str | None = Field(default=None, alias="prefix")
+    first: str | None = Field(default=None, alias="first")
+    middle: str | None = Field(default=None, alias="middle")
+    last: str | None = Field(default=None, alias="last")
+    suffix: str | None = Field(default=None, alias="suffix")
+
+
+class FirestoreCoverageAddress(BaseModel):
+    """Mailing address nested beneath insurance coverage entries."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    address_line1: str | None = Field(default=None, alias="addressLine1")
+    address_line2: str | None = Field(default=None, alias="addressLine2")
+    city: str | None = Field(default=None, alias="city")
+    state: str | None = Field(default=None, alias="state")
+    postal_code: str | None = Field(default=None, alias="postalCode")
+    country: str | None = Field(default=None, alias="country")
+
+
+class FirestoreCoverage(BaseModel):
+    """Insurance coverage metadata stored on the patient document."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    member_id: str | None = Field(default=None, alias="memberId")
+    payer_name: str | None = Field(default=None, alias="payerName")
+    payer_id: str | None = Field(default=None, alias="payerId")
+    relationship_to_subscriber: str | None = Field(
+        default=None, alias="relationshipToSubscriber"
+    )
+    first_name: str | None = Field(default=None, alias="firstName")
+    last_name: str | None = Field(default=None, alias="lastName")
+    gender: str | None = Field(default=None, alias="gender")
+    alt_payer_name: str | None = Field(default=None, alias="altPayerName")
+    insurance_type: str | None = Field(default=None, alias="insuranceType")
+    payer_rank: int | None = Field(default=None, alias="payerRank")
+    address: FirestoreCoverageAddress | None = Field(default=None, alias="address")
+    plan_effective_date: date | None = Field(default=None, alias="planEffectiveDate")
+
+
+class FirestoreEHRMetadata(BaseModel):
+    """Identifiers linking the Firestore patient to its source EHR."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    provider: str | None = Field(default=None, alias="provider")
+    instance_id: str | None = Field(default=None, alias="instanceId")
+    patient_id: str | None = Field(default=None, alias="patientId")
+    facility_id: str | None = Field(default=None, alias="facilityId")
 
 
 class FirestoreMailingAddress(BaseModel):
@@ -64,15 +122,15 @@ class FirestorePatientDocumentData(BaseModel):
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    patient: PatientRecord | None = Field(default=None, alias="patient")
-    record: PatientRecord | None = Field(default=None, alias="record")
+    patient: "PipelinePatientRecord" | None = Field(default=None, alias="patient")
+    record: "PipelinePatientRecord" | None = Field(default=None, alias="record")
     normalized: FirestoreNormalizedPatient | None = Field(
         default=None, alias="normalized"
     )
     metadata: Mapping[str, Any] | None = Field(default=None, alias="metadata")
     raw: Mapping[str, Any] | None = Field(default=None, alias="raw")
 
-    def patient_payload(self) -> PatientRecord | None:
+    def patient_payload(self) -> "PipelinePatientRecord" | None:
         """Return the patient record embedded in the Firestore document."""
 
         if self.patient is not None:
@@ -89,7 +147,18 @@ class FirestorePatientDocumentSnapshot(BaseModel):
     data: FirestorePatientDocumentData
 
 
-class PipelinePatientRecord(PatientRecord):
+class PipelinePatientRecord(BaseModel):
     """Patient payload schema tailored for the anonymizer pipeline."""
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    created_at: int | datetime | None = Field(default=None, alias="createdAt")
+    name: FirestoreName | None = Field(default=None, alias="name")
+    dob: date | None = Field(default=None, alias="dob")
+    gender: str | None = Field(default=None, alias="gender")
+    coverages: list[FirestoreCoverage] = Field(default_factory=list, alias="coverages")
+    ehr: FirestoreEHRMetadata | None = Field(default=None, alias="ehr")
+    facility_id: str | None = Field(default=None, alias="facilityId")
+    facility_name: str | None = Field(default=None, alias="facilityName")
+    tenant_id: str | None = Field(default=None, alias="tenantId")
+    tenant_name: str | None = Field(default=None, alias="tenantName")
