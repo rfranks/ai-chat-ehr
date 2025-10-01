@@ -8,7 +8,7 @@ import hmac
 import os
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Literal, Mapping, cast
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Protocol, cast
 from uuid import UUID, NAMESPACE_URL, uuid5
 
 from shared.observability.logger import get_logger
@@ -42,10 +42,15 @@ from services.anonymizer.storage.postgres import (
 )
 from services.anonymizer.storage.sqlfile import SQLFileStorage
 
-try:  # pragma: no cover - pydantic is an optional runtime dependency for tests
+if TYPE_CHECKING:  # pragma: no cover - import used only for static typing
     from pydantic import ValidationError as _PydanticValidationError
-except Exception:  # pragma: no cover - defensive guard for import-time issues
-    _PydanticValidationError = Exception  # type: ignore[assignment]
+else:  # pragma: no cover - pydantic is an optional runtime dependency for tests
+    try:
+        from pydantic import ValidationError as _PydanticValidationError
+    except Exception:  # pragma: no cover - defensive guard for import-time issues
+
+        class _PydanticValidationError(Exception):
+            """Fallback validation error when pydantic is unavailable."""
 
 
 class ValidationError(Exception):
@@ -55,7 +60,23 @@ class ValidationError(Exception):
         super().__init__(message)
 
 
-_VALIDATION_ERRORS = (_PydanticValidationError, ValidationError)
+_VALIDATION_ERRORS: tuple[type[Exception], ...] = (
+    _PydanticValidationError,
+    ValidationError,
+)
+
+
+class AnonymizerEngine(Protocol):
+    """Protocol describing the anonymizer interface used by the service."""
+
+    def anonymize(
+        self,
+        text: str,
+        *,
+        collect_events: bool = False,
+    ) -> str | tuple[str, list[TransformationEvent]]:
+        """Return anonymized text and optionally collected events."""
+
 
 ENV_POSTGRES_DSN = "ANONYMIZER_POSTGRES_DSN"
 ENV_STORAGE_MODE = "ANONYMIZER_STORAGE_MODE"
@@ -194,10 +215,14 @@ def _sanitize_transformation_summary(summary: Mapping[str, Any]) -> dict[str, An
                 else {},
             }
 
-    total = summary.get("total_transformations")
-    if not isinstance(total, int):
+    total_value = summary.get("total_transformations")
+    if isinstance(total_value, int):
+        total = total_value
+    elif total_value is None:
+        total = 0
+    else:
         try:
-            total = int(total)  # pragma: no cover - defensive cast
+            total = int(total_value)  # pragma: no cover - defensive cast
         except Exception:  # pragma: no cover - fallback to zero on cast issues
             total = 0
 
@@ -254,7 +279,7 @@ class ServiceConfigurationError(PatientProcessingError):
 @dataclass(slots=True)
 class _ServiceDependencies:
     firestore: FirestoreDataSource
-    anonymizer: PresidioAnonymizerEngine
+    anonymizer: AnonymizerEngine
     storage: PatientStorage
 
 
@@ -316,7 +341,7 @@ def _apply_identifier_fallback(
 def configure_service(
     *,
     firestore: FirestoreDataSource | None = None,
-    anonymizer: PresidioAnonymizerEngine | None = None,
+    anonymizer: AnonymizerEngine | None = None,
     storage: PatientStorage | None = None,
 ) -> None:
     """Configure global service dependencies for :func:`process_patient`."""
@@ -401,7 +426,7 @@ async def process_patient(
     document_id: str,
     *,
     firestore: FirestoreDataSource | None = None,
-    anonymizer: PresidioAnonymizerEngine | None = None,
+    anonymizer: AnonymizerEngine | None = None,
     storage: PatientStorage | None = None,
 ) -> tuple[UUID, list[TransformationEvent]]:
     """Fetch, anonymize, and persist a patient record from Firestore.
@@ -497,7 +522,7 @@ async def process_patient(
 def _resolve_dependencies(
     *,
     firestore: FirestoreDataSource | None,
-    anonymizer: PresidioAnonymizerEngine | None,
+    anonymizer: AnonymizerEngine | None,
     storage: PatientStorage | None,
 ) -> _ServiceDependencies:
     if firestore or anonymizer or storage:
@@ -518,7 +543,7 @@ def _resolve_dependencies(
 
 
 def _anonymize_document(
-    engine: PresidioAnonymizerEngine,
+    engine: AnonymizerEngine,
     document: FirestorePatientDocument,
     event_accumulator: list[TransformationEvent] | None = None,
 ) -> FirestorePatientDocument:
@@ -639,7 +664,7 @@ def _anonymize_document(
 
 
 def _anonymize_coverage(
-    engine: PresidioAnonymizerEngine,
+    engine: AnonymizerEngine,
     coverage: FirestoreCoverage,
     event_accumulator: list[TransformationEvent] | None = None,
 ) -> FirestoreCoverage:
@@ -737,8 +762,8 @@ def _generalize_plan_effective_date(
 
 def _log_invalid_plan_effective_date(value: object) -> None:
     logger.warning(
-        "Unable to generalize coverage plan effective date due to malformed input.",
         event="anonymizer.coverage.plan_effective_date_invalid",
+        message="Unable to generalize coverage plan effective date due to malformed input.",
         details=scrub_for_logging(
             {
                 "value_type": type(value).__name__,
@@ -826,7 +851,7 @@ def _synthesize_postal_code(
 
 
 def _anonymize_address(
-    engine: PresidioAnonymizerEngine,
+    engine: AnonymizerEngine,
     address: FirestoreAddress,
     event_accumulator: list[TransformationEvent] | None = None,
 ) -> FirestoreAddress:
@@ -898,7 +923,7 @@ def _anonymize_address(
 
 
 def _anonymize_text(
-    engine: PresidioAnonymizerEngine,
+    engine: AnonymizerEngine,
     value: str | None,
     event_accumulator: list[TransformationEvent] | None = None,
 ) -> str | None:
