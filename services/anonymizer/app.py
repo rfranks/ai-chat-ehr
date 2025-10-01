@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Annotated
+from typing import Any, Annotated, Mapping
+from uuid import NAMESPACE_URL, uuid5
 
-from fastapi import APIRouter, FastAPI, HTTPException, Path, status
+from fastapi import APIRouter, FastAPI, HTTPException, Path, Request, status
+from fastapi.responses import JSONResponse
 
-from shared.http.errors import register_exception_handlers
-from shared.observability.logger import configure_logging
+from shared.http.errors import ProblemDetails, register_exception_handlers
+from shared.observability.logger import configure_logging, get_logger
 from shared.observability.middleware import (
     CorrelationIdMiddleware,
     RequestTimingMiddleware,
@@ -22,6 +24,9 @@ from services.anonymizer.service import (
     process_patient,
 )
 
+
+logger = get_logger(__name__)
+
 SERVICE_NAME = "anonymizer"
 
 configure_logging(service_name=SERVICE_NAME)
@@ -32,6 +37,139 @@ router = APIRouter(prefix="/anonymizer", tags=["anonymizer"])
 app.add_middleware(RequestTimingMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 register_exception_handlers(app)
+
+
+def _document_surrogate_id(path_params: Mapping[str, Any]) -> str | None:
+    """Return a deterministic surrogate identifier for the requested document."""
+
+    document_id = path_params.get("document_id")
+    if not isinstance(document_id, str):
+        return None
+
+    token = document_id.strip()
+    if not token:
+        return None
+
+    surrogate_uuid = uuid5(NAMESPACE_URL, f"https://chatehr.ai/anonymizer/document/{token}")
+    return f"doc-{surrogate_uuid}"
+
+
+def _problem_response(
+    *,
+    request: Request,
+    status_code: int,
+    title: str,
+    detail: str,
+    type_uri: str,
+    extras: Mapping[str, Any] | None = None,
+) -> JSONResponse:
+    problem = ProblemDetails(
+        type=type_uri,
+        title=title,
+        status=status_code,
+        detail=detail,
+        instance=str(request.url),
+        **(extras or {}),
+    )
+    payload = problem.model_dump(mode="json", exclude_none=True)
+    return JSONResponse(payload, status_code=status_code)
+
+
+@app.exception_handler(PatientNotFoundError)
+async def handle_patient_not_found(
+    request: Request, exc: PatientNotFoundError
+) -> JSONResponse:
+    """Return a sanitized 404 response when a patient document is missing."""
+
+    surrogate_id = _document_surrogate_id(request.path_params)
+    extras: dict[str, Any] = {}
+    detail = "Patient document could not be found for the supplied identifiers."
+    if surrogate_id:
+        extras["documentSurrogateId"] = surrogate_id
+        detail = (
+            "Patient document with surrogate identifier "
+            f"'{surrogate_id}' could not be found."
+        )
+
+    return _problem_response(
+        request=request,
+        status_code=status.HTTP_404_NOT_FOUND,
+        title="Patient Document Not Found",
+        detail=detail,
+        type_uri="https://chatehr.ai/problems/anonymizer/patient-not-found",
+        extras=extras,
+    )
+
+
+@app.exception_handler(DuplicatePatientError)
+async def handle_duplicate_patient(
+    request: Request, exc: DuplicatePatientError
+) -> JSONResponse:
+    """Return a sanitized 409 response when a duplicate patient is detected."""
+
+    surrogate_id = _document_surrogate_id(request.path_params)
+    extras: dict[str, Any] = {}
+    detail = "An anonymized patient record already exists for this document."
+    if surrogate_id:
+        extras["documentSurrogateId"] = surrogate_id
+        detail = (
+            "An anonymized patient record already exists for document surrogate "
+            f"'{surrogate_id}'."
+        )
+
+    return _problem_response(
+        request=request,
+        status_code=status.HTTP_409_CONFLICT,
+        title="Duplicate Patient Document",
+        detail=detail,
+        type_uri="https://chatehr.ai/problems/anonymizer/duplicate-patient",
+        extras=extras,
+    )
+
+
+@app.exception_handler(ServiceConfigurationError)
+async def handle_service_configuration(
+    request: Request, exc: ServiceConfigurationError
+) -> JSONResponse:
+    """Return a sanitized 500 response when dependencies are misconfigured."""
+
+    logger.exception("service_configuration_error", error=str(exc))
+
+    detail = "The anonymizer service is misconfigured and cannot process requests."
+    return _problem_response(
+        request=request,
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        title="Anonymizer Service Misconfiguration",
+        detail=detail,
+        type_uri="https://chatehr.ai/problems/anonymizer/service-misconfiguration",
+    )
+
+
+@app.exception_handler(PatientProcessingError)
+async def handle_patient_processing(
+    request: Request, exc: PatientProcessingError
+) -> JSONResponse:
+    """Return a sanitized response for generic patient processing failures."""
+
+    surrogate_id = _document_surrogate_id(request.path_params)
+    extras: dict[str, Any] = {}
+    detail = "The patient document could not be processed due to an upstream error."
+    if surrogate_id:
+        extras["documentSurrogateId"] = surrogate_id
+        detail = (
+            f"The patient document surrogate '{surrogate_id}' could not be processed "
+            "due to an upstream error."
+        )
+
+    status_code = status.HTTP_502_BAD_GATEWAY
+    return _problem_response(
+        request=request,
+        status_code=status_code,
+        title="Patient Processing Error",
+        detail=detail,
+        type_uri="https://chatehr.ai/problems/anonymizer/patient-processing",
+        extras=extras,
+    )
 
 
 @app.get("/health", tags=["health"])
@@ -81,28 +219,7 @@ async def anonymize_document(
             detail="Collection and document identifiers must be non-empty strings.",
         )
 
-    try:
-        patient_id = await process_patient(collection_token, document_token)
-    except PatientNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Patient document could not be found for the supplied identifiers.",
-        ) from exc
-    except DuplicatePatientError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An anonymized patient record already exists for this document.",
-        ) from exc
-    except ServiceConfigurationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="The anonymizer service is not properly configured to process patients.",
-        ) from exc
-    except PatientProcessingError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The patient document could not be processed due to an upstream error.",
-        ) from exc
+    patient_id = await process_patient(collection_token, document_token)
 
     summary = summarize_transformations([])
     summary_payload = {
