@@ -140,6 +140,15 @@ if "structlog" not in sys.modules:
     structlog_stub.get_logger = _get_logger
     sys.modules["structlog"] = structlog_stub
 
+if "dotenv" not in sys.modules:
+    dotenv_stub = types.ModuleType("dotenv")
+
+    def load_dotenv(*_args, **_kwargs):  # pragma: no cover - stub implementation
+        return None
+
+    dotenv_stub.load_dotenv = load_dotenv
+    sys.modules["dotenv"] = dotenv_stub
+
 if "loguru" not in sys.modules:
     loguru_stub = types.ModuleType("loguru")
 
@@ -213,7 +222,7 @@ from services.anonymizer.models.firestore import (
     FirestoreName,
     FirestorePatientDocument,
 )
-from services.anonymizer.service import _anonymize_document
+from services.anonymizer.service import _anonymize_document, _extract_address
 
 
 class _StubPresidioEngine:
@@ -287,9 +296,6 @@ def test_accumulates_address_events_without_leaking_phi() -> None:
         {
             "Alice": ("anon-first", "token-first", "PATIENT_FIRST_NAME"),
             "Smith": ("anon-last", "token-last", "PATIENT_LAST_NAME"),
-            "123 Main St": ("anon-address", "token-line1", "COVERAGE_ADDRESS_LINE1"),
-            "Metropolis": ("anon-city", "token-city", "COVERAGE_ADDRESS_CITY"),
-            "10101": ("anon-postal", "token-postal", "COVERAGE_ADDRESS_POSTAL"),
         }
     )
     document = _build_document()
@@ -297,32 +303,40 @@ def test_accumulates_address_events_without_leaking_phi() -> None:
         FirestoreCoverage(
             address=FirestoreAddress(
                 address_line1="123 Main St",
+                address_line2="Unit 3",
                 city="Metropolis",
+                state="CA",
                 postal_code="10101",
+                country="US",
             )
         )
     )
 
     events: list[TransformationEvent] = []
-    _anonymize_document(engine, document, events)
+    anonymized = _anonymize_document(engine, document, events)
 
     address_entities = {
-        "COVERAGE_ADDRESS_LINE1",
-        "COVERAGE_ADDRESS_CITY",
-        "COVERAGE_ADDRESS_POSTAL",
+        "PATIENT_ADDRESS_STREET",
+        "PATIENT_ADDRESS_CITY",
+        "PATIENT_ADDRESS_POSTAL_CODE",
     }
     captured = {event.entity_type for event in events if event.entity_type in address_entities}
     assert captured == address_entities
 
-    originals = {
-        "COVERAGE_ADDRESS_LINE1": "123 Main St",
-        "COVERAGE_ADDRESS_CITY": "Metropolis",
-        "COVERAGE_ADDRESS_POSTAL": "10101",
-    }
     for event in events:
-        if event.entity_type in originals:
-            assert originals[event.entity_type] not in event.surrogate
+        if event.entity_type in address_entities:
+            assert "123 Main St" not in event.surrogate
+            assert "Metropolis" not in event.surrogate
+            assert "10101" not in event.surrogate
             assert event.surrogate
+
+    synthesized_address = anonymized.coverages[0].address
+    assert synthesized_address is not None
+    assert synthesized_address.address_line1 != "123 Main St"
+    assert synthesized_address.city != "Metropolis"
+    assert synthesized_address.postal_code != "10101"
+    assert synthesized_address.state == "CA"
+    assert synthesized_address.country == "US"
 
 
 def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
@@ -364,3 +378,36 @@ def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
         if event.entity_type in originals:
             assert originals[event.entity_type] not in event.surrogate
             assert event.surrogate
+
+
+def test_extract_address_returns_generalized_structure() -> None:
+    engine = _StubPresidioEngine(
+        {
+            "Alice": ("anon-first", "token-first", "PATIENT_FIRST_NAME"),
+            "Smith": ("anon-last", "token-last", "PATIENT_LAST_NAME"),
+        }
+    )
+    document = _build_document()
+    document.coverages.append(
+        FirestoreCoverage(
+            address=FirestoreAddress(
+                address_line1="500 Elm Street",
+                address_line2="Suite 12",
+                city="Oldtown",
+                state="TX",
+                postal_code="73301",
+                country="US",
+            )
+        )
+    )
+
+    anonymized = _anonymize_document(engine, document)
+    generalized = _extract_address(anonymized)
+
+    assert generalized is not None
+    assert generalized["street"] == anonymized.coverages[0].address.address_line1
+    assert generalized["city"] == anonymized.coverages[0].address.city
+    assert generalized["state"] == "TX"
+    assert generalized["postal_code"] == anonymized.coverages[0].address.postal_code
+    assert generalized["country"] == "US"
+    assert generalized.get("unit") == anonymized.coverages[0].address.address_line2
