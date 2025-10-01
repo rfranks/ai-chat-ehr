@@ -10,7 +10,7 @@ such as `modelProvider`, `model`, and `temperature`.
 Resolved requests are wrapped in a `_ChainExecutionContext` that captures the
 chosen language model, provider metadata, fetched patient context, resolved
 variables, and the ordered prompt steps that will be executed. Prompt selectors
-are normalised via the prompt catalog client: raw strings become temporary
+are normalized via the prompt catalog client: raw strings become temporary
 prompts, `ChatPromptKey` enums fetch catalog entries, and missing prompts raise a
 `PromptNotFoundError`.
 
@@ -41,7 +41,7 @@ Prompt metadata optionally includes `categories`, but when a prompt lacks labels
 the chain executor invokes `_ensure_prompt_categories` to infer them. The helper
 first inspects the prompt metadata and cached results; if no categories are
 available it instantiates a lazily-created `CategoryClassifier`. The classifier
-serialises the prompt payload to JSON, invokes its `LLMChain`, and parses the
+serializes the prompt payload to JSON, invokes its `LLMChain`, and parses the
 response into category slugs using a deterministic parser. Successful
 classifications are cached by a digest of the prompt metadata, and the inferred
 slugs are injected back into the prompt metadata for downstream consumers.

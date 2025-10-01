@@ -124,7 +124,7 @@ class PromptRepository:
         return not prompt_categories.isdisjoint(categories)
 
     def _extract_categories(self, prompt: ChatPrompt) -> set[str]:
-        """Return the normalised category slugs for ``prompt``."""
+        """Return the normalized category slugs for ``prompt``."""
 
         categories: set[str] = set()
         for value in prompt.categories or []:
@@ -162,7 +162,7 @@ class PromptRepository:
 
     @staticmethod
     def _normalize_category_slug(value: Any) -> str:
-        """Normalise a category value to a lowercase slug."""
+        """Normalize a category value to a lowercase slug."""
 
         if value is None:
             return ""
@@ -278,7 +278,7 @@ _DEFAULT_PROMPTS: tuple[ChatPrompt, ...] = (
         description="Outline prioritized differential diagnoses with supporting evidence and next steps.",
         template=(
             "Given the chief concern {chief_complaint} and key findings {clinical_findings}, "
-            "list the top differential diagnoses. For each, summarise supporting/contradicting "
+            "list the top differential diagnoses. For each, summarize supporting/contradicting "
             "data and note recommended diagnostics to confirm or exclude the condition."
         ),
         input_variables=["chief_complaint", "clinical_findings"],

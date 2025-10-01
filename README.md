@@ -17,14 +17,14 @@ experience.
 | --- | --- | --- | --- | --- |
 | API gateway | Reverse proxy that fronts the prompt, patient, and chain services with consistent observability and health checks. | 8000 | <http://localhost:8000/docs> | [`docs/openapi/api_gateway.json`](docs/openapi/api_gateway.json) |
 | Prompt catalog | Hosts reusable prompt templates and simple search endpoints. | 8001 | <http://localhost:8001/docs> | [`docs/openapi/prompt_catalog.json`](docs/openapi/prompt_catalog.json) |
-| Patient context | Serves mock EMR data and pre-normalised patient context payloads. | 8002 | <http://localhost:8002/docs> | [`docs/openapi/patient_context.json`](docs/openapi/patient_context.json) |
+| Patient context | Serves mock EMR data and pre-normalized patient context payloads. | 8002 | <http://localhost:8002/docs> | [`docs/openapi/patient_context.json`](docs/openapi/patient_context.json) |
 | Chain executor | Resolves prompt chains, enriches them with patient context, and executes LLM calls with optional streaming. | 8003 | <http://localhost:8003/docs> | [`docs/openapi/chain_executor.json`](docs/openapi/chain_executor.json) |
 | Anonymizer | Fetches patient documents, applies Safe Harbor PHI masking, and persists anonymized records. | 8004 | <http://localhost:8004/docs> | _Coming soon_ |
 
 The OpenAPI documents above are generated from the live FastAPI applications and
 can be imported into tooling such as Postman or Stoplight. See
 [`docs/architecture.md`](docs/architecture.md) for a deeper dive into the orchestration
-strategy, provider selection, and prompt categorisation logic.
+strategy, provider selection, and prompt categorization logic.
 
 ## Bundled prompt catalog
 
@@ -34,12 +34,12 @@ can request the right slices of patient context.
 
 | Key | Title | Description | Categories |
 | --- | --- | --- | --- |
-| `patient_context` | Patient Context Overview | Summarise clinical background and social determinants for the visit. | patientDetail, problems, socialHistory, careTeam |
+| `patient_context` | Patient Context Overview | Summarize clinical background and social determinants for the visit. | patientDetail, problems, socialHistory, careTeam |
 | `clinical_plan` | Clinical Plan Outline | Draft a multi-domain assessment and plan from encounter details. | problems, orders, medications, labs, testResults |
 | `follow_up_questions` | Follow-up Question Suggestions | Propose clarifying follow-up questions based on open issues. | notes, problems, patientDetail |
 | `patient_summary` | Comprehensive Patient Summary | Combine demographics, active problems, and recent findings into a cohesive narrative. | patientDetail, problems, notes |
-| `differential_diagnosis` | Differential Diagnosis Explorer | Prioritise differentials with supporting evidence and recommended workup. | problems, labs, testResults, notes |
-| `patient_education` | Patient Education Brief | Translate the care plan into accessible counselling points and safety advice. | medications, carePlans, socialHistory |
+| `differential_diagnosis` | Differential Diagnosis Explorer | Prioritize differentials with supporting evidence and recommended workup. | problems, labs, testResults, notes |
+| `patient_education` | Patient Education Brief | Translate the care plan into accessible counseling points and safety advice. | medications, carePlans, socialHistory |
 | `safety_checks` | Care Safety Checklist | Flag medication, allergy, and monitoring concerns requiring action. | medications, allergies, vitals, orders |
 | `triage_assessment` | Urgency Triage Assessment | Evaluate visit urgency from presenting symptoms, vitals, and risk factors. | vitals, patientDetail, riskScores, encounters |
 
@@ -56,7 +56,7 @@ can request the right slices of patient context.
 
 ### Chain executor environment variables
 
-The chain executor service recognises several knobs for tuning cache behaviour
+The chain executor service recognizes several knobs for tuning cache behavior
 without code changes. All variables are optional and fall back to sensible
 defaults if unset.
 
@@ -190,7 +190,7 @@ services:
   ```bash
   curl http://localhost:8001/categories | jq
   ```
-  Each category includes a ``slug``, ``name``, ``description``, and recognised ``aliases``.
+Each category includes a ``slug``, ``name``, ``description``, and recognized ``aliases``.
 * Retrieve patient context for the bundled sample patient (`patient_id=123456`):
   ```bash
   curl "http://localhost:8002/patients/123456/context" | jq
@@ -227,7 +227,7 @@ services:
           "chain": ["follow_up_questions"],
           "patientId": "123456",
           "variables": {
-            "patient_summary": "Summarise outstanding questions for the follow-up visit."
+            "patient_summary": "Summarize outstanding questions for the follow-up visit."
           }
         }'
   ```

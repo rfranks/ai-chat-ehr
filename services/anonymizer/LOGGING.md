@@ -19,7 +19,7 @@ Whenever new logging is added under `services/anonymizer`, ensure:
 
 1. The payload is passed through `scrub_for_logging` or derived from
    `summarize_patient_document` before logging.
-2. Tests are updated to cover new sanitisation logic when additional allow-list
+2. Tests are updated to cover new sanitization logic when additional allow-list
    entries or summary helpers are introduced.
 3. The resulting log messages can be safely shared outside of the production
    environment without revealing PHI.
