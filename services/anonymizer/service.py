@@ -299,7 +299,7 @@ def _get_dependencies() -> _ServiceDependencies:
 def _create_presidio_config_from_env() -> PresidioEngineConfig:
     """Build a :class:`PresidioEngineConfig` using environment overrides."""
 
-    kwargs: dict[str, object] = {}
+    kwargs: dict[str, Any] = {}
 
     secret = os.getenv(ENV_ANONYMIZER_HASH_SECRET)
     if secret:
@@ -390,8 +390,8 @@ async def process_patient(
         ) from exc
 
     logger.info(
-        "Fetched patient document metadata from Firestore.",
-        event="anonymizer.patient.document_loaded",
+        "anonymizer.patient.document_loaded",
+        message="Fetched patient document metadata from Firestore.",
         firestore_reference=scrub_for_logging(
             {
                 "collection": collection,
@@ -417,13 +417,15 @@ async def process_patient(
         event_accumulator=transformation_events,
     )
 
-    transformation_summary = summarize_transformations(transformation_events)
+    transformation_summary = summarize_transformations(
+        [event.model_dump(mode="python") for event in transformation_events]
+    )
 
     try:
         patient_id = deps.storage.insert_patient(patient_row)
         logger.info(
-            "Persisted anonymized patient record.",
-            event="anonymizer.patient.persisted",
+            "anonymizer.patient.persisted",
+            message="Persisted anonymized patient record.",
             record=scrub_for_logging({"record_id": patient_id}),
             patient_row=scrub_for_logging(patient_row),
             transformation_event_count=len(transformation_events),
@@ -481,14 +483,16 @@ def _anonymize_document(
     original_ehr_instance_id = document.ehr.instance_id if document.ehr else None
     original_ehr_patient_id = document.ehr.patient_id if document.ehr else None
 
-    anonymized.name.first = _anonymize_text(
-        engine, anonymized.name.first, event_accumulator
+    anonymized.name.first = cast(
+        str,
+        _anonymize_text(engine, anonymized.name.first, event_accumulator),
     )
     anonymized.name.middle = _anonymize_text(
         engine, anonymized.name.middle, event_accumulator
     )
-    anonymized.name.last = _anonymize_text(
-        engine, anonymized.name.last, event_accumulator
+    anonymized.name.last = cast(
+        str,
+        _anonymize_text(engine, anonymized.name.last, event_accumulator),
     )
     anonymized.name.prefix = _anonymize_text(
         engine, anonymized.name.prefix, event_accumulator
@@ -509,11 +513,14 @@ def _anonymize_document(
             anonymized.facility_id,
             event_accumulator,
         )
-    anonymized.facility_id = _apply_identifier_fallback(
-        original=original_facility_id,
-        anonymized=anonymized.facility_id,
-        entity_type="FACILITY_ID",
-        event_accumulator=event_accumulator,
+    anonymized.facility_id = cast(
+        str | None,
+        _apply_identifier_fallback(
+            original=original_facility_id,
+            anonymized=anonymized.facility_id,
+            entity_type="FACILITY_ID",
+            event_accumulator=event_accumulator,
+        ),
     )
     if anonymized.tenant_name:
         anonymized.tenant_name = _anonymize_text(
@@ -527,11 +534,14 @@ def _anonymize_document(
             anonymized.tenant_id,
             event_accumulator,
         )
-    anonymized.tenant_id = _apply_identifier_fallback(
-        original=original_tenant_id,
-        anonymized=anonymized.tenant_id,
-        entity_type="TENANT_ID",
-        event_accumulator=event_accumulator,
+    anonymized.tenant_id = cast(
+        str | None,
+        _apply_identifier_fallback(
+            original=original_tenant_id,
+            anonymized=anonymized.tenant_id,
+            entity_type="TENANT_ID",
+            event_accumulator=event_accumulator,
+        ),
     )
 
     if anonymized.ehr:
@@ -545,22 +555,28 @@ def _anonymize_document(
             anonymized.ehr.instance_id,
             event_accumulator,
         )
-        anonymized.ehr.instance_id = _apply_identifier_fallback(
-            original=original_ehr_instance_id,
-            anonymized=anonymized.ehr.instance_id,
-            entity_type="EHR_INSTANCE_ID",
-            event_accumulator=event_accumulator,
+        anonymized.ehr.instance_id = cast(
+            str | None,
+            _apply_identifier_fallback(
+                original=original_ehr_instance_id,
+                anonymized=anonymized.ehr.instance_id,
+                entity_type="EHR_INSTANCE_ID",
+                event_accumulator=event_accumulator,
+            ),
         )
         anonymized.ehr.patient_id = _anonymize_text(
             engine,
             anonymized.ehr.patient_id,
             event_accumulator,
         )
-        anonymized.ehr.patient_id = _apply_identifier_fallback(
-            original=original_ehr_patient_id,
-            anonymized=anonymized.ehr.patient_id,
-            entity_type="EHR_PATIENT_ID",
-            event_accumulator=event_accumulator,
+        anonymized.ehr.patient_id = cast(
+            str | None,
+            _apply_identifier_fallback(
+                original=original_ehr_patient_id,
+                anonymized=anonymized.ehr.patient_id,
+                entity_type="EHR_PATIENT_ID",
+                event_accumulator=event_accumulator,
+            ),
         )
         anonymized.ehr.facility_id = _anonymize_text(
             engine,
@@ -587,11 +603,14 @@ def _anonymize_coverage(
     # Identifiers that could reveal payer or subscriber identity must remain
     # anonymized to protect PHI.
     coverage.member_id = _anonymize_text(engine, coverage.member_id, event_accumulator)
-    coverage.member_id = _apply_identifier_fallback(
-        original=original_member_id,
-        anonymized=coverage.member_id,
-        entity_type="INSURANCE_MEMBER_ID",
-        event_accumulator=event_accumulator,
+    coverage.member_id = cast(
+        str | None,
+        _apply_identifier_fallback(
+            original=original_member_id,
+            anonymized=coverage.member_id,
+            entity_type="INSURANCE_MEMBER_ID",
+            event_accumulator=event_accumulator,
+        ),
     )
     coverage.payer_name = _anonymize_text(
         engine, coverage.payer_name, event_accumulator
@@ -672,8 +691,10 @@ def _generalize_plan_effective_date(
 
 def _log_invalid_plan_effective_date(value: object) -> None:
     logger.warning(
-        "Unable to generalize coverage plan effective date due to malformed input.",
-        event="anonymizer.coverage.plan_effective_date_invalid",
+        "anonymizer.coverage.plan_effective_date_invalid",
+        message=(
+            "Unable to generalize coverage plan effective date due to malformed input."
+        ),
         details=scrub_for_logging(
             {
                 "value_type": type(value).__name__,
@@ -840,9 +861,13 @@ def _anonymize_text(
     if not value:
         return value
     if event_accumulator is None:
-        return engine.anonymize(value)
+        result = engine.anonymize(value)
+        return cast(str, result)
 
-    anonymized_text, events = engine.anonymize(value, collect_events=True)
+    anonymized_text, events = cast(
+        tuple[str, list[TransformationEvent]],
+        engine.anonymize(value, collect_events=True),
+    )
     event_accumulator.extend(events)
     return anonymized_text
 

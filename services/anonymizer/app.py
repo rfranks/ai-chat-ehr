@@ -238,16 +238,18 @@ async def anonymize_document(
         collection_token, document_token
     )
 
-    transformation_summary = summarize_transformations(transformation_events)
+    transformation_summary = summarize_transformations(
+        [event.model_dump(mode="python") for event in transformation_events]
+    )
     aggregates = TransformationAggregates.model_validate(transformation_summary)
     response_payload = AnonymizeResponse(
         status="accepted",
-        summary=TransformationSummary(record_id=patient_id, transformations=aggregates),
+        summary=TransformationSummary(recordId=patient_id, transformations=aggregates),
     )
 
     logger.info(
-        "Accepted anonymizer request for processing.",
-        event="anonymizer.document.accepted",
+        "anonymizer.document.accepted",
+        message="Accepted anonymizer request for processing.",
         request=scrub_for_logging(
             {
                 "collection": collection_token,

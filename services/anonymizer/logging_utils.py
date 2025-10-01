@@ -7,13 +7,28 @@ from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
 from enum import Enum
 from itertools import islice
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    Mapping as TypingMapping,
+    Protocol,
+    cast,
+)
 from uuid import UUID
 
+
+class _BaseModelProtocol(Protocol):
+    def model_dump(self, mode: str = "python") -> TypingMapping[str, Any]:
+        """Return a mapping representation of the model."""
+
+
 try:  # pragma: no cover - optional dependency guard
-    from pydantic import BaseModel
+    from pydantic import BaseModel as _PydanticBaseModel
 except Exception:  # pragma: no cover - pydantic is expected but make defensive
-    BaseModel = None  # type: ignore[assignment]
+    BaseModel: type[_BaseModelProtocol] | None = None
+else:
+    BaseModel = cast("type[_BaseModelProtocol]", _PydanticBaseModel)
 
 if TYPE_CHECKING:  # pragma: no cover - for static analysis only
     from services.anonymizer.models.firestore import (
@@ -24,10 +39,15 @@ else:
 
 try:  # pragma: no cover - optional dependency guard
     from services.anonymizer.models.firestore import (
-        FirestorePatientDocument as _RuntimeFirestorePatientDocument,
+        FirestorePatientDocument as _ImportedFirestorePatientDocument,
     )
 except Exception:  # pragma: no cover - allow usage without Firestore models installed
-    _RuntimeFirestorePatientDocument = None
+    _RuntimeFirestorePatientDocument: type[_FirestorePatientDocument] | None = None
+else:
+    _RuntimeFirestorePatientDocument = cast(
+        "type[_FirestorePatientDocument]",
+        _ImportedFirestorePatientDocument,
+    )
 
 DEFAULT_ALLOWED_KEYS: frozenset[str] = frozenset(
     {
@@ -92,7 +112,7 @@ def scrub_for_logging(
             if isinstance(payload, Mapping) and _has_required_keys(payload):
                 return payload
 
-        if is_dataclass(obj):
+        if is_dataclass(obj) and not isinstance(obj, type):
             field_names = {
                 name.lower() for name in getattr(obj, "__dataclass_fields__", {})
             }
@@ -186,7 +206,7 @@ def scrub_for_logging(
             return obj.name
         if isinstance(obj, (str, bytes, bytearray, UUID, date, datetime)):
             return redaction
-        if is_dataclass(obj):
+        if is_dataclass(obj) and not isinstance(obj, type):
             marker = id(obj)
             if marker in seen:
                 return redaction

@@ -24,32 +24,24 @@ def _stub_logger_module(
     stub = types.ModuleType(module_name)
 
     class _DummyLogger:
-        def bind(
-            self, *args: object, **kwargs: object
-        ) -> "_DummyLogger":  # pragma: no cover - stub
-            return self
+        def bind(self, *args: object, **kwargs: object) -> "_DummyLogger":
+            return self  # pragma: no cover - stub
 
-        def info(
-            self, *args: object, **kwargs: object
-        ) -> None:  # pragma: no cover - stub
-            return None
+        def info(self, *args: object, **kwargs: object) -> None:
+            return None  # pragma: no cover - stub
 
-        def warning(
-            self, *args: object, **kwargs: object
-        ) -> None:  # pragma: no cover - stub
-            return None
+        def warning(self, *args: object, **kwargs: object) -> None:
+            return None  # pragma: no cover - stub
 
-        def contextualize(
-            self, *args: object, **kwargs: object
-        ):  # pragma: no cover - stub
+        def contextualize(self, *args: object, **kwargs: object):
             @contextmanager
             def _ctx():
                 yield None
 
-            return _ctx()
+            return _ctx()  # pragma: no cover - stub
 
-    def get_logger(name: str | None = None) -> _DummyLogger:  # pragma: no cover - stub
-        return _DummyLogger()
+    def get_logger(name: str | None = None) -> _DummyLogger:
+        return _DummyLogger()  # pragma: no cover - stub
 
     stub.get_logger = get_logger  # type: ignore[attr-defined]
     stub.configure_logging = lambda *args, **kwargs: None  # type: ignore[attr-defined]
