@@ -104,6 +104,83 @@ def test_scrub_for_logging_handles_base_model_like_objects() -> None:
     assert sanitized["value"] == "<redacted>"
 
 
+def test_scrub_for_logging_handles_transformation_event_dataclass() -> None:
+    @dataclass
+    class TransformationEvent:
+        entity_type: str
+        action: str
+        start: int
+        end: int
+        surrogate: str
+        metadata: dict[str, object]
+
+    payload = {
+        "events": [
+            TransformationEvent(
+                entity_type="NAME",
+                action="replace",
+                start=0,
+                end=4,
+                surrogate="HASHED",
+                metadata={"confidence": 0.91, "notes": "sensitive"},
+            )
+        ]
+    }
+
+    sanitized = scrub_for_logging(payload)
+
+    events = sanitized["events"]
+    assert events["count"] == 1
+    sample = events["sample"][0]
+    assert sample["__type__"] == "TransformationEvent"
+    assert sample["entity_type"] == "NAME"
+    assert sample["action"] == "replace"
+    assert sample["start"] == 0
+    assert sample["end"] == 4
+    assert sample["span_length"] == 4
+    assert sample["surrogate"] == "<redacted>"
+    assert sample["surrogate_present"] is True
+    assert sample["surrogate_length"] == len("HASHED")
+    assert sample["metadata"]["confidence"] == pytest.approx(0.91)
+    assert sample["metadata"]["notes"] == "<redacted>"
+
+
+def test_scrub_for_logging_handles_transformation_event_model_dump() -> None:
+    class TransformationEventModel(_MODULE.BaseModel):  # type: ignore[misc,valid-type]
+        pass
+
+    payload = {
+        "events": [
+            TransformationEventModel(
+                {
+                    "entity_type": "PHONE",
+                    "action": "redact",
+                    "start": 10,
+                    "end": 21,
+                    "surrogate": {"value": "***"},
+                    "metadata": {"strategy": "mask", "details": {"length": 3}},
+                }
+            )
+        ]
+    }
+
+    sanitized = scrub_for_logging(payload)
+
+    events = sanitized["events"]
+    assert events["count"] == 1
+    sample = events["sample"][0]
+    assert sample["entity_type"] == "PHONE"
+    assert sample["action"] == "redact"
+    assert sample["start"] == 10
+    assert sample["end"] == 21
+    assert sample["span_length"] == 11
+    assert sample["surrogate_present"] is True
+    assert "surrogate_length" not in sample
+    assert sample["surrogate"]["value"] == "<redacted>"
+    assert sample["metadata"]["strategy"] == "<redacted>"
+    assert sample["metadata"]["details"]["length"] == 3
+
+
 @pytest.mark.parametrize(
     "field",
     ["event", "status", "service"],
@@ -127,6 +204,16 @@ def test_summarize_patient_document_returns_high_level_counts() -> None:
         ],
         "facility_id": "fac-1",
         "tenant_name": "Acme",
+        "transformation_events": [
+            {
+                "entity_type": "NAME",
+                "action": "replace",
+                "start": 0,
+                "end": 4,
+                "surrogate": "HASHED",
+            }
+        ],
+        "transformation_summary": {"total_transformations": 1},
     }
 
     summary = summarize_patient_document(document)
@@ -138,3 +225,16 @@ def test_summarize_patient_document_returns_high_level_counts() -> None:
     assert summary["coverages_with_address"] == 1
     assert summary["facility_metadata_present"] is True
     assert summary["tenant_metadata_present"] is True
+    assert summary["transformation_event_count"] == 1
+    assert summary["transformation_summary_present"] is True
+
+
+def test_summarize_patient_document_counts_transformation_event_mapping() -> None:
+    document = {
+        "transformation_events": {"count": 7, "sample": []},
+    }
+
+    summary = summarize_patient_document(document)
+
+    assert summary["transformation_event_count"] == 7
+    assert summary["transformation_summary_present"] is False
