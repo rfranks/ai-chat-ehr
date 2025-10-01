@@ -361,9 +361,10 @@ class _CategoryCacheEntry:
 # concurrently by the event loop.
 _CATEGORY_CACHE_LOCK = asyncio.Lock()
 _CATEGORY_CLASSIFICATION_CACHE: "OrderedDict[str, _CategoryCacheEntry]" = OrderedDict()
-_KNOWN_CATEGORY_SLUGS: frozenset[str] = frozenset(
-    category.slug for category in DEFAULT_PROMPT_CATEGORIES
-)
+_CATEGORY_SLUG_MAP: dict[str, str] = {
+    category.slug.casefold(): category.slug for category in DEFAULT_PROMPT_CATEGORIES
+}
+_KNOWN_CATEGORY_SLUGS: frozenset[str] = frozenset(_CATEGORY_SLUG_MAP.values())
 
 
 def _filter_valid_categories(values: Iterable[str]) -> list[str]:
@@ -373,12 +374,13 @@ def _filter_valid_categories(values: Iterable[str]) -> list[str]:
         slug = value.strip()
         if not slug:
             continue
-        if slug not in _KNOWN_CATEGORY_SLUGS:
+        canonical = _CATEGORY_SLUG_MAP.get(slug.casefold())
+        if canonical is None:
             continue
-        if slug in seen:
+        if canonical in seen:
             continue
-        seen.add(slug)
-        ordered.append(slug)
+        seen.add(canonical)
+        ordered.append(canonical)
     return ordered
 
 

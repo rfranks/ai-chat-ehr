@@ -445,7 +445,7 @@ async def test_execute_chain_prefers_prompt_categories_for_patient_context(
         key=ChatPromptKey.PATIENT_SUMMARY,
         template="Summary: {symptom}",
         input_variables=["symptom"],
-        metadata={"categories": ["labs", "invalid", "notes"]},
+        metadata={"categories": [" Labs ", "invalid", "NOTES"]},
     )
 
     payload = {
@@ -453,7 +453,7 @@ async def test_execute_chain_prefers_prompt_categories_for_patient_context(
         "variables": {"symptom": "fatigue"},
         "modelProvider": "openai/gpt-3.5-turbo",
         "patientId": "patient-123",
-        "categories": ["vitals", "medications"],
+        "categories": ["ViTaLs", "medications"],
     }
 
     result = await _execute_chain_request(
@@ -512,7 +512,7 @@ async def test_execute_chain_uses_request_categories_when_prompt_missing(
         "variables": {"symptom": "fatigue"},
         "modelProvider": "openai/gpt-3.5-turbo",
         "patientId": "patient-456",
-        "categories": ["vitals", "unknown", "medications"],
+        "categories": [" VITALS ", "unknown", "MEDICATIONS"],
     }
 
     result = await _execute_chain_request(
