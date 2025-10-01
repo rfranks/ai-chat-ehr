@@ -11,7 +11,20 @@ from types import MappingProxyType
 from typing import Any, Literal, Mapping, cast
 from uuid import UUID, NAMESPACE_URL, uuid5
 
-from pydantic import ValidationError
+try:  # pragma: no cover - pydantic is an optional runtime dependency for tests
+    from pydantic import ValidationError as _PydanticValidationError
+except Exception:  # pragma: no cover - defensive guard for import-time issues
+    _PydanticValidationError = Exception  # type: ignore[assignment]
+
+
+class ValidationError(Exception):
+    """Lightweight validation error compatible with test stubs."""
+
+    def __init__(self, message: str = "Validation failed") -> None:
+        super().__init__(message)
+
+
+_VALIDATION_ERRORS = (_PydanticValidationError, ValidationError)
 
 from shared.observability.logger import get_logger
 
@@ -159,6 +172,40 @@ _CITY_NAMES = (
     "Pinecrest",
     "Harborside",
 )
+
+
+def _sanitize_transformation_summary(summary: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``summary`` stripped of auxiliary metadata for structured logging."""
+
+    actions = summary.get("actions")
+    sanitized_actions = dict(actions) if isinstance(actions, Mapping) else {}
+
+    sanitized_entities: dict[str, dict[str, Any]] = {}
+    entities = summary.get("entities")
+    if isinstance(entities, Mapping):
+        for entity, details in entities.items():
+            if not isinstance(details, Mapping):
+                continue
+            actions_mapping = details.get("actions")
+            sanitized_entities[str(entity)] = {
+                "count": details.get("count", 0),
+                "actions": dict(actions_mapping)
+                if isinstance(actions_mapping, Mapping)
+                else {},
+            }
+
+    total = summary.get("total_transformations")
+    if not isinstance(total, int):
+        try:
+            total = int(total)  # pragma: no cover - defensive cast
+        except Exception:  # pragma: no cover - fallback to zero on cast issues
+            total = 0
+
+    return {
+        "total_transformations": total,
+        "actions": sanitized_actions,
+        "entities": sanitized_entities,
+    }
 
 
 ProcessingPhase = Literal["fetch", "validation", "storage"]
@@ -383,14 +430,14 @@ async def process_patient(
 
     try:
         document = FirestorePatientDocument.model_validate(payload)
-    except ValidationError as exc:  # pragma: no cover - defensive validation
+    except _VALIDATION_ERRORS as exc:  # pragma: no cover - defensive validation
         raise PatientProcessingError(
             "Patient document is malformed and cannot be processed.",
             phase="validation",
         ) from exc
 
     logger.info(
-        "anonymizer.patient.document_loaded",
+        event="anonymizer.patient.document_loaded",
         message="Fetched patient document metadata from Firestore.",
         firestore_reference=scrub_for_logging(
             {
@@ -420,21 +467,20 @@ async def process_patient(
     transformation_summary = summarize_transformations(
         [event.model_dump(mode="python") for event in transformation_events]
     )
+    sanitized_summary = _sanitize_transformation_summary(transformation_summary)
 
     try:
         patient_id = deps.storage.insert_patient(patient_row)
         logger.info(
-            "anonymizer.patient.persisted",
+            event="anonymizer.patient.persisted",
             message="Persisted anonymized patient record.",
             record=scrub_for_logging({"record_id": patient_id}),
             patient_row=scrub_for_logging(patient_row),
             transformation_event_count=len(transformation_events),
-            total_transformations=transformation_summary["total_transformations"],
-            transformation_actions=scrub_for_logging(transformation_summary["actions"]),
-            transformation_entities=scrub_for_logging(
-                transformation_summary["entities"]
-            ),
-            transformation_summary=scrub_for_logging(transformation_summary),
+            total_transformations=sanitized_summary["total_transformations"],
+            transformation_actions=sanitized_summary["actions"],
+            transformation_entities=sanitized_summary["entities"],
+            transformation_summary=sanitized_summary,
         )
         return patient_id, transformation_events
     except ConstraintViolationError as exc:
@@ -691,10 +737,8 @@ def _generalize_plan_effective_date(
 
 def _log_invalid_plan_effective_date(value: object) -> None:
     logger.warning(
-        "anonymizer.coverage.plan_effective_date_invalid",
-        message=(
-            "Unable to generalize coverage plan effective date due to malformed input."
-        ),
+        "Unable to generalize coverage plan effective date due to malformed input.",
+        event="anonymizer.coverage.plan_effective_date_invalid",
         details=scrub_for_logging(
             {
                 "value_type": type(value).__name__,

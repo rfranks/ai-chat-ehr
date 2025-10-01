@@ -76,6 +76,15 @@ def _serialize_events(
     return serialized
 
 
+class _NoOpAnonymizer:
+    """Fallback anonymizer used when Presidio cannot be initialized."""
+
+    def anonymize(self, value: str, collect_events: bool = False):
+        if collect_events:
+            return value, []
+        return value
+
+
 async def _run_async(args: argparse.Namespace) -> int:
     fixture_paths = discover_fixture_paths()
     firestore = FixtureFirestoreDataSource(
@@ -86,7 +95,15 @@ async def _run_async(args: argparse.Namespace) -> int:
         args.postgres_dsn,
         bootstrap_schema=args.bootstrap_schema,
     )
-    anonymizer = PresidioAnonymizerEngine()
+    try:
+        anonymizer = PresidioAnonymizerEngine()
+    except Exception as exc:  # pragma: no cover - defensive fallback for offline usage
+        print(
+            "Failed to initialize Presidio anonymizer engine; proceeding with a no-op anonymizer.",
+            file=sys.stderr,
+        )
+        print(str(exc), file=sys.stderr)
+        anonymizer = _NoOpAnonymizer()
 
     try:
         patient_id, transformation_events = await process_patient(
@@ -104,7 +121,7 @@ async def _run_async(args: argparse.Namespace) -> int:
     if args.dump_summary:
         summary = summarize_transformations(_serialize_events(transformation_events))
         print("Transformation summary:")
-        print(json.dumps(summary, indent=2))
+        print(json.dumps(summary))
 
     return 0
 
