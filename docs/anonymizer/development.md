@@ -31,7 +31,7 @@ This guide explains how to set up the anonymizer service for local development, 
 ### Seed supporting services
 
 * **PostgreSQL** – Create a database (defaults to `anonymizer`) and apply the DDL shipped with the service. The default mapping writes to `anonymized_patients` as declared in [`services/anonymizer/app/pipelines/ddl/patients.ddl`](../../services/anonymizer/app/pipelines/ddl/patients.ddl). The table stores the raw Firestore payload, its normalized variant, the extracted patient payload, and the anonymized patient data alongside the originating collection and processing timestamp so downstream analytics can inspect each stage of the pipeline.【F:services/anonymizer/app/pipelines/ddl/patients.ddl†L1-L8】
-* **Firestore** – Populate a `patients` collection with documents that contain a `patient` object shaped like `PatientRecord`. The pipeline normalizes documents and extracts the payload using the shared model definitions.【F:services/anonymizer/app/pipelines/patient_pipeline.py†L343-L367】【F:shared/models/chat.py†L334-L377】
+* **Firestore** – Populate a `patients` collection with documents that match the structures in `services.anonymizer.app.models.patient`. In particular, the `FirestorePatientDocumentData` model captures the Firestore payload and embeds a `PatientRecord` for the patient-specific content. The pipeline normalizes documents and extracts the payload using these shared definitions.【F:services/anonymizer/app/models/patient.py†L1-L92】【F:services/anonymizer/app/pipelines/patient_pipeline.py†L343-L367】【F:shared/models/chat.py†L334-L377】
 
 For local testing you can point the service at the Firestore emulator by exporting the standard Google environment variables alongside the anonymizer-specific settings.
 
