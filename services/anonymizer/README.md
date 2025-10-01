@@ -37,6 +37,33 @@ python scripts/run_anonymizer.py xpF51IBED5TOKMPJamWo \
 
 Add `--no-bootstrap-schema` when the target database already contains the anonymizer tables.
 
+### Local CLI Workflow
+
+Use the CLI script when you want to dry-run anonymization locally without spinning up FastAPI. Set the environment variables that mirror the production service configuration so the CLI produces the same deterministic surrogates:
+
+```bash
+export ANONYMIZER_POSTGRES_DSN="postgresql://postgres:postgres@localhost:5432/postgres"
+export ANONYMIZER_FIRESTORE_FIXTURES_DIR="services/anonymizer/firestore_fixtures/patients"
+export ANONYMIZER_HASH_SECRET="ai-chat-ehr-safe-harbor"
+export ANONYMIZER_HASH_PREFIX="anon"
+export ANONYMIZER_HASH_LENGTH="12"
+export ANONYMIZER_IDENTIFIER_HASH_SECRET="ai-chat-ehr-anonymizer"
+```
+
+With the variables in place, invoke the script against the bundled sample patient fixture. The command below targets the `xpF51IBED5TOKMPJamWo.json` fixture and writes the anonymized record to the configured Postgres DSN:
+
+```bash
+python scripts/run_anonymizer.py xpF51IBED5TOKMPJamWo --postgres-dsn "$ANONYMIZER_POSTGRES_DSN" --dump-summary
+```
+
+Successful runs print the persisted patient UUID along with a JSON transformation summary so you can confirm that only hashed surrogates and Safe Harbor generalizations were emitted (for example `Persisted anonymized patient 917e452d-d44c-5f2c-9297-bf18e304cdd8`).【F:scripts/run_anonymizer.py†L71-L88】【F:services/anonymizer/firestore_fixtures/patients/xpF51IBED5TOKMPJamWo.json†L1-L66】
+
+**Troubleshooting tips**
+
+- Ensure the DSN points to a reachable Postgres instance; failures surface as connection errors before any patient payload is processed.【F:scripts/run_anonymizer.py†L46-L67】
+- If the script reports that the fixture cannot be located, verify `ANONYMIZER_FIRESTORE_FIXTURES_DIR` includes the sample JSON and that the document ID matches the filename minus `.json`.【F:services/anonymizer/firestore/fixtures.py†L8-L56】
+- Review the printed summary instead of raw logs when validating PHI handling—the CLI intentionally outputs only hashed surrogates and aggregate counts so no raw PHI ever appears on stdout.【F:scripts/run_anonymizer.py†L71-L88】【F:services/anonymizer/reporting.py†L28-L68】
+
 ## Dry-run SQL output
 
 Set `ANONYMIZER_STORAGE_MODE=sqlfile` to review anonymized patient rows without writing
