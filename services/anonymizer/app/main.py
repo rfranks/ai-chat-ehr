@@ -118,12 +118,27 @@ def _resolve_patient_payload(
 def _build_patient_pipeline() -> PatientPipeline:
     settings = get_settings()
     column_mapping = {
-        "document_id": "document_id",
-        "collection": _resolve_collection,
-        "firestore_document": _resolve_firestore_document,
-        "normalized_document": _resolve_normalized_document,
-        "patient_payload": _resolve_patient_payload,
-        "anonymized_payload": _resolve_anonymized_payload,
+        "tenant_id": "normalized.tenant_id",
+        "facility_id": "normalized.facility_id",
+        "ehr_instance_id": "normalized.ehr_instance_id",
+        "ehr_external_id": "normalized.ehr_external_id",
+        "ehr_connection_status": "normalized.ehr_connection_status",
+        "ehr_last_full_manual_sync_at": "normalized.ehr_last_full_manual_sync_at",
+        "name_first": "patient.demographics.first_name",
+        "name_last": "patient.demographics.last_name",
+        "dob": "patient.demographics.date_of_birth",
+        "gender": "patient.demographics.gender",
+        "ethnicity_description": "patient.demographics.ethnicity",
+        "legal_mailing_address": "normalized.legal_mailing_address",
+        "photo_url": "normalized.photo_url",
+        "unit_description": "normalized.unit_description",
+        "floor_description": "normalized.floor_description",
+        "room_description": "normalized.room_description",
+        "bed_description": "normalized.bed_description",
+        "status": "normalized.status",
+        "admission_time": "normalized.admission_time",
+        "discharge_time": "normalized.discharge_time",
+        "death_time": "normalized.death_time",
     }
     return PatientPipeline(
         firestore_client=_get_firestore_client(),
