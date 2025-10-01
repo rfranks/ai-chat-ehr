@@ -418,10 +418,7 @@ async def process_patient(
     )
 
     transformation_summary = summarize_transformations(
-        [
-            event.model_dump(mode="python")
-            for event in transformation_events
-        ]
+        [event.model_dump(mode="python") for event in transformation_events]
     )
 
     try:

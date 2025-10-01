@@ -7,8 +7,16 @@ from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
 from enum import Enum
 from itertools import islice
-from typing import TYPE_CHECKING, Any, Iterable, Mapping as TypingMapping, Protocol, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    Mapping as TypingMapping,
+    Protocol,
+    cast,
+)
 from uuid import UUID
+
 
 class _BaseModelProtocol(Protocol):
     def model_dump(self, mode: str = "python") -> TypingMapping[str, Any]:

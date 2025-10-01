@@ -102,9 +102,7 @@ async def _run_async(args: argparse.Namespace) -> int:
     print(f"Persisted anonymized patient {patient_id}")
 
     if args.dump_summary:
-        summary = summarize_transformations(
-            _serialize_events(transformation_events)
-        )
+        summary = summarize_transformations(_serialize_events(transformation_events))
         print("Transformation summary:")
         print(json.dumps(summary, indent=2))
 
@@ -113,9 +111,7 @@ async def _run_async(args: argparse.Namespace) -> int:
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = _build_parser()
-    parsed_args = parser.parse_args(
-        None if argv is None else list(argv)
-    )
+    parsed_args = parser.parse_args(None if argv is None else list(argv))
     try:
         return asyncio.run(_run_async(parsed_args))
     except KeyboardInterrupt:  # pragma: no cover - manual cancellation guard
