@@ -761,10 +761,13 @@ def _generalize_plan_effective_date(
 
 
 def _log_invalid_plan_effective_date(value: object) -> None:
-    logger.warning(
-        event="anonymizer.coverage.plan_effective_date_invalid",
-        message="Unable to generalize coverage plan effective date due to malformed input.",
-        details=scrub_for_logging(
+    message = (
+        "Unable to generalize coverage plan effective date due to malformed input."
+    )
+    payload = {
+        "event": "anonymizer.coverage.plan_effective_date_invalid",
+        "message": message,
+        "details": scrub_for_logging(
             {
                 "value_type": type(value).__name__,
                 "value_present": value is not None,
@@ -772,7 +775,12 @@ def _log_invalid_plan_effective_date(value: object) -> None:
             },
             allow_keys={"value_type", "value_present", "value_length"},
         ),
-    )
+    }
+
+    try:
+        logger.warning(message, **payload)
+    except TypeError:  # pragma: no cover - structlog compatibility
+        logger.warning(**payload)
 
 
 def _hash_to_int(*values: str | None, salt: str) -> int:
