@@ -43,6 +43,7 @@ __all__ = [
     "PipelineContext",
     "PipelineRunSummary",
     "ReplacementSummary",
+    "build_address_component_resolver",
     "build_path_resolver",
 ]
 
@@ -224,6 +225,105 @@ def build_path_resolver(path: str) -> ColumnResolver:
             return _traverse_structure(payload, tail)
 
         return _traverse_structure(payload, parts)
+
+    return resolver
+
+
+_ADDRESS_COMPONENT_KEYS = (
+    "line1",
+    "line2",
+    "city",
+    "state",
+    "postal_code",
+)
+
+_STATE_POSTAL_RE = re.compile(
+    r"^(?P<state>[A-Za-z]{2})(?:\s+(?P<postal>[0-9A-Za-z-]{3,}))?$"
+)
+
+
+def _normalise_component(value: str | None) -> str | None:
+    if not value:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _split_address_components(address: str | None) -> dict[str, str | None]:
+    """Return discrete address components parsed from ``address`` strings."""
+
+    components: dict[str, str | None] = {key: None for key in _ADDRESS_COMPONENT_KEYS}
+    if not address:
+        return components
+
+    normalised = address.replace("\n", ",").strip()
+    if not normalised:
+        return components
+
+    parts = [part.strip() for part in re.split(r",+", normalised) if part.strip()]
+    if not parts:
+        return components
+
+    components["line1"] = _normalise_component(parts[0])
+
+    remaining = parts[1:]
+    city: str | None = None
+    state_zip_source: str | None = None
+
+    if remaining:
+        if len(remaining) >= 2:
+            city = remaining[-2]
+            state_zip_source = remaining[-1]
+            if len(remaining) > 2:
+                components["line2"] = _normalise_component(
+                    ", ".join(item for item in remaining[:-2] if item)
+                )
+        else:
+            state_zip_source = remaining[-1]
+    if city:
+        components["city"] = _normalise_component(city)
+
+    if state_zip_source:
+        match = _STATE_POSTAL_RE.match(state_zip_source.strip())
+        if match:
+            components["state"] = _normalise_component(match.group("state"))
+            components["postal_code"] = _normalise_component(match.group("postal"))
+        else:
+            tokens = state_zip_source.split()
+            if tokens:
+                # Extract postal code when the last token resembles one.
+                if re.match(r"^[0-9A-Za-z-]{3,}$", tokens[-1]):
+                    components["postal_code"] = _normalise_component(tokens.pop())
+                if tokens:
+                    components["state"] = _normalise_component(tokens.pop())
+                if tokens and components["city"] is None:
+                    components["city"] = _normalise_component(" ".join(tokens))
+
+    if components["city"] is None and len(parts) == 2:
+        tokens = parts[1].split()
+        if len(tokens) >= 3:
+            components["city"] = _normalise_component(" ".join(tokens[:-2]))
+            if components["state"] is None:
+                components["state"] = _normalise_component(tokens[-2])
+            if components["postal_code"] is None:
+                components["postal_code"] = _normalise_component(tokens[-1])
+
+    return components
+
+
+def build_address_component_resolver(component: str) -> ColumnResolver:
+    """Build a resolver returning a specific component of the demographics address."""
+
+    if component not in _ADDRESS_COMPONENT_KEYS:
+        raise ValueError(f"Unsupported address component: {component}")
+
+    def resolver(payload: Mapping[str, Any], _context: PipelineContext) -> Any:
+        demographics = payload.get("demographics") if isinstance(payload, Mapping) else None
+        address = None
+        if isinstance(demographics, Mapping):
+            address = demographics.get("address")
+        components = _split_address_components(address if isinstance(address, str) else None)
+        return components[component]
 
     return resolver
 
