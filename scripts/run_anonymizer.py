@@ -6,7 +6,7 @@ import argparse
 import asyncio
 import json
 import sys
-from typing import Any, Iterable, Mapping
+from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 from services.anonymizer.firestore.client import (
     FixtureFirestoreDataSource,
@@ -15,7 +15,10 @@ from services.anonymizer.firestore.client import (
 from services.anonymizer.firestore.fixtures import discover_fixture_paths
 from services.anonymizer.presidio_engine import PresidioAnonymizerEngine
 from services.anonymizer.reporting import summarize_transformations
-from services.anonymizer.service import process_patient
+from services.anonymizer.service import AnonymizerEngine, process_patient
+
+if TYPE_CHECKING:
+    from services.anonymizer.models import TransformationEvent
 from services.anonymizer.storage.postgres import PostgresStorage
 
 
@@ -79,7 +82,12 @@ def _serialize_events(
 class _NoOpAnonymizer:
     """Fallback anonymizer used when Presidio cannot be initialized."""
 
-    def anonymize(self, value: str, collect_events: bool = False):
+    def anonymize(
+        self,
+        value: str,
+        *,
+        collect_events: bool = False,
+    ) -> str | tuple[str, list["TransformationEvent"]]:
         if collect_events:
             return value, []
         return value
@@ -96,7 +104,7 @@ async def _run_async(args: argparse.Namespace) -> int:
         bootstrap_schema=args.bootstrap_schema,
     )
     try:
-        anonymizer = PresidioAnonymizerEngine()
+        anonymizer: AnonymizerEngine = PresidioAnonymizerEngine()
     except Exception as exc:  # pragma: no cover - defensive fallback for offline usage
         print(
             "Failed to initialize Presidio anonymizer engine; proceeding with a no-op anonymizer.",
