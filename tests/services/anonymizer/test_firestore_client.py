@@ -163,6 +163,19 @@ def test_create_firestore_data_source_defaults_to_fixture_mode(
     assert isinstance(data_source, FixtureFirestoreDataSource)
 
 
+def test_create_firestore_data_source_trims_env_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_DATA_SOURCE, "  fixtures  ")
+
+    data_source = create_firestore_data_source()
+
+    try:
+        assert isinstance(data_source, FixtureFirestoreDataSource)
+    finally:
+        monkeypatch.delenv(ENV_DATA_SOURCE, raising=False)
+
+
 def test_create_firestore_data_source_uses_custom_fixture_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
