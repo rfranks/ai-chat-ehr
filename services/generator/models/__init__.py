@@ -1,10 +1,30 @@
 """Data models used by the generator service."""
 
-from .patient import PatientRecord, Gender, PatientStatus, PatientSeed
+from .consultation import (
+    AiSoapNoteError,
+    AiSoapNoteStatus,
+    BillingStatus,
+    ConsultationBillingCodeRecord,
+    ConsultationCallRequestRecord,
+    ConsultationCallRequestState,
+    ConsultationRecord,
+    ConsultationType,
+    SuggestedConfidence,
+)
+from .patient import Gender, PatientRecord, PatientSeed, PatientStatus
 
 __all__ = [
+    "AiSoapNoteError",
+    "AiSoapNoteStatus",
+    "BillingStatus",
+    "ConsultationBillingCodeRecord",
+    "ConsultationCallRequestRecord",
+    "ConsultationCallRequestState",
+    "ConsultationRecord",
+    "ConsultationType",
     "Gender",
-    "PatientStatus",
-    "PatientSeed",
     "PatientRecord",
+    "PatientSeed",
+    "PatientStatus",
+    "SuggestedConfidence",
 ]
