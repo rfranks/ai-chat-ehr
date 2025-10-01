@@ -401,19 +401,20 @@ def _anonymize_coverage(
 ) -> FirestoreCoverage:
     coverage = coverage.model_copy(deep=True)
 
+    # Identifiers that could reveal payer or subscriber identity must remain
+    # anonymized to protect PHI.
     coverage.member_id = _anonymize_text(engine, coverage.member_id, event_accumulator)
     coverage.payer_name = _anonymize_text(engine, coverage.payer_name, event_accumulator)
     coverage.payer_id = _anonymize_text(engine, coverage.payer_id, event_accumulator)
-    coverage.relationship_to_subscriber = _anonymize_text(
-        engine,
-        coverage.relationship_to_subscriber,
-        event_accumulator,
-    )
     coverage.first_name = _anonymize_text(engine, coverage.first_name, event_accumulator)
     coverage.last_name = _anonymize_text(engine, coverage.last_name, event_accumulator)
-    coverage.gender = _anonymize_text(engine, coverage.gender, event_accumulator)
     coverage.alt_payer_name = _anonymize_text(engine, coverage.alt_payer_name, event_accumulator)
-    coverage.insurance_type = _anonymize_text(engine, coverage.insurance_type, event_accumulator)
+
+    # Enumerated values (gender, insurance type, subscriber relationship, payer
+    # rank) are not direct identifiers and are sourced from controlled
+    # vocabularies, so we preserve them to retain data utility while avoiding
+    # unnecessary transformation events. These attributes are left untouched
+    # below.
 
     if coverage.address:
         coverage.address = _anonymize_address(
