@@ -32,7 +32,7 @@ develop = false
 
 [[package]]
 name = "langchain-core"
-version = "0.3.27"
+version = "0.3.72"
 description = "Core functionality for LangChain"
 optional = false
 python-versions = "*"
@@ -193,4 +193,4 @@ develop = false
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "742b2793ebfe0b23321be0e82e31ac51be66d298abcdf48f8f603de48f04e5ca"
+content-hash = "167b7772cfa182326ffb4ba85c09bfe9bdda30249bab600c72d4f4a75c83c9d8"
