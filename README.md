@@ -98,7 +98,8 @@ defaults if unset.
    docker compose up --build
    ```
    The compose file ensures Redis comes online before the downstream APIs, and
-   the API gateway only starts once its dependencies report healthy. The
+   the API gateway waits for its dependencies to start (readiness still requires
+   health checks if you need that guarantee). The
    containers expose the service ports listed above on `localhost`. Use
    `docker compose down` to stop the stack when you finish testing.
 
