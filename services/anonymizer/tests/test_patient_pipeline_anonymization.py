@@ -16,6 +16,8 @@ from services.anonymizer.app.pipelines.patient_pipeline import (
     PatientPipeline,
     PipelineContext,
     PatientPayloadValidationError,
+    _normalize_structure,
+    _stringify_structure,
 )
 
 
@@ -151,3 +153,75 @@ def test_extract_patient_payload_wraps_validation_errors(
     assert "date_of_birth" in message
     assert "31-02-2020" not in message
     assert "Ada" not in message
+
+
+def test_normalize_structure_strips_unmapped_fields() -> None:
+    firestore_payload = {
+        "patient": {
+            "demographics": {
+                "firstName": "Ada",
+                "ehrSpecificId": "should-be-removed",
+            },
+            "encounters": [
+                {"location": "Clinic", "ehrEncounterId": "discard"},
+                {"location": "Hospital", "notes": "ok", "extraField": True},
+            ],
+            "unstructuredBlob": {"foo": "bar"},
+        },
+        "normalized": {
+            "tenantId": "tenant-123",
+            "facilityId": "facility-9",
+            "residentId": "forbidden",
+            "legalMailingAddress": {
+                "line1": "123 Main St",
+                "geoCode": "remove",
+            },
+        },
+        "metadata": {"keep": "root extras are fine"},
+    }
+
+    normalized = _normalize_structure(firestore_payload)
+
+    patient = normalized["patient"]
+    demographics = patient["demographics"]
+    assert demographics == {"first_name": "Ada"}
+
+    encounters = patient["encounters"]
+    assert encounters == [
+        {"location": "Clinic"},
+        {"location": "Hospital", "notes": "ok"},
+    ]
+
+    assert "unstructured_blob" not in patient
+
+    normalized_meta = normalized["normalized"]
+    assert normalized_meta == {
+        "tenant_id": "tenant-123",
+        "facility_id": "facility-9",
+        "legal_mailing_address": {"line1": "123 Main St"},
+    }
+
+    # Ensure unrelated root keys remain untouched for context/debugging purposes.
+    assert normalized["metadata"] == {"keep": "root extras are fine"}
+
+
+def test_stringify_structure_masks_unknown_fields() -> None:
+    structure = {
+        "patient": {
+            "demographics": {
+                "first_name": b"ada",
+                "unwanted": "drop",
+            }
+        },
+        "normalized": {
+            "tenant_id": "tenant-321",
+            "forbidden": "discard",
+        },
+        "raw": {"any": "thing"},
+    }
+
+    stringified = _stringify_structure(structure)
+
+    assert stringified["patient"]["demographics"] == {"first_name": "ada"}
+    assert stringified["normalized"] == {"tenant_id": "tenant-321"}
+    assert stringified["raw"] == {"any": "thing"}

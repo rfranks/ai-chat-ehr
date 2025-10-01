@@ -20,15 +20,19 @@ service while still allowing tests to provide lightweight fakes.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping as ABCMapping, MutableMapping as ABCMutableMapping, Sequence as ABCSequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, MutableMapping, Sequence
+from typing import Any, Callable, Mapping, MutableMapping, Sequence, get_args, get_origin
 import json
 import re
 from copy import deepcopy
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
-from services.anonymizer.app.models import PipelinePatientRecord
+from services.anonymizer.app.models import (
+    FirestoreNormalizedPatient,
+    PipelinePatientRecord,
+)
 from shared.observability.logger import get_logger
 
 from .resilience import RetryPolicy, call_async_with_retry, call_with_retry
@@ -137,16 +141,112 @@ def _normalize_key(key: str) -> str:
     return cleaned.lower()
 
 
-def _normalize_structure(value: Any) -> Any:
-    """Recursively convert mapping keys to ``snake_case``."""
+@dataclass(frozen=True)
+class _SchemaNode:
+    """Declarative description of an allowed anonymizer data structure."""
+
+    children: Mapping[str, "_SchemaNode | None"] | None = None
+    sequence: "_SchemaNode | None" = None
+    allow_extra: bool = False
+
+
+def _strip_optional(annotation: Any) -> Any:
+    """Return ``annotation`` without ``None`` members from ``Union`` types."""
+
+    origin = get_origin(annotation)
+    if origin is None:
+        return annotation
+
+    raw_args = get_args(annotation)
+    args = tuple(arg for arg in raw_args if arg is not type(None))
+    if args and len(raw_args) == len(args) + 1 and len(args) == 1:
+        # ``Optional[T]`` forms return a single surviving argument.
+        return args[0]
+    return annotation
+
+
+def _build_schema_from_annotation(annotation: Any) -> _SchemaNode | None:
+    """Return a schema node describing ``annotation`` for anonymizer filtering."""
+
+    annotation = _strip_optional(annotation)
+    origin = get_origin(annotation)
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return _build_model_schema(annotation)
+
+    if origin in {list, tuple, set, Sequence, ABCSequence}:
+        args = get_args(annotation)
+        if origin is tuple and args and args[-1] is not Ellipsis:
+            # Fixed length tuples are treated as unrestricted.
+            return None
+        item_annotation = args[0] if args else Any
+        item_schema = _build_schema_from_annotation(item_annotation)
+        return _SchemaNode(children=None, sequence=item_schema, allow_extra=False)
+
+    if origin in {Mapping, MutableMapping, dict, ABCMapping, ABCMutableMapping}:
+        return _SchemaNode(children=None, sequence=None, allow_extra=True)
+
+    return None
+
+
+def _build_model_schema(model: type[BaseModel]) -> _SchemaNode:
+    """Construct a schema tree representing ``model``'s allowed keys."""
+
+    children: dict[str, _SchemaNode | None] = {}
+    for name, field in model.model_fields.items():
+        children[name] = _build_schema_from_annotation(field.annotation)
+    return _SchemaNode(children=children, sequence=None, allow_extra=False)
+
+
+_PIPELINE_PATIENT_SCHEMA = _build_model_schema(PipelinePatientRecord)
+_FIRESTORE_NORMALIZED_SCHEMA = _build_model_schema(FirestoreNormalizedPatient)
+
+
+_ANONYMIZER_ROOT_SCHEMA = _SchemaNode(
+    children={
+        "patient": _PIPELINE_PATIENT_SCHEMA,
+        "record": _PIPELINE_PATIENT_SCHEMA,
+        "normalized": _FIRESTORE_NORMALIZED_SCHEMA,
+    },
+    allow_extra=True,
+)
+
+
+_DEFAULT_SCHEMA_SENTINEL = object()
+
+
+def _normalize_structure(value: Any, schema: _SchemaNode | None | object = _DEFAULT_SCHEMA_SENTINEL) -> Any:
+    """Recursively convert mapping keys to ``snake_case`` and drop forbidden fields."""
+
+    if schema is _DEFAULT_SCHEMA_SENTINEL:
+        schema = _ANONYMIZER_ROOT_SCHEMA
 
     if isinstance(value, Mapping):
-        return {
-            _normalize_key(str(key)): _normalize_structure(item)
-            for key, item in value.items()
-        }
+        normalized: dict[str, Any] = {}
+        for key, item in value.items():
+            normalized_key = _normalize_key(str(key))
+            child_schema: _SchemaNode | None = None
+            allowed = True
+
+            if isinstance(schema, _SchemaNode) and schema.children is not None:
+                if normalized_key in schema.children:
+                    child_schema = schema.children[normalized_key]
+                else:
+                    allowed = schema.allow_extra
+            elif isinstance(schema, _SchemaNode) and schema.children is None:
+                allowed = schema.allow_extra
+
+            if not allowed:
+                continue
+
+            normalized_value = _normalize_structure(item, child_schema)
+            normalized[normalized_key] = normalized_value
+        return normalized
+
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_normalize_structure(item) for item in value]
+        child_schema = schema.sequence if isinstance(schema, _SchemaNode) else None
+        return [_normalize_structure(item, child_schema) for item in value]
+
     return value
 
 
@@ -210,13 +310,35 @@ def _serialise_for_column(value: Any) -> Any:
     return value
 
 
-def _stringify_structure(value: Any) -> Any:
+def _stringify_structure(value: Any, schema: _SchemaNode | None | object = _DEFAULT_SCHEMA_SENTINEL) -> Any:
     """Convert a structure into a JSON serialisable representation."""
 
+    if schema is _DEFAULT_SCHEMA_SENTINEL:
+        schema = _ANONYMIZER_ROOT_SCHEMA
+
     if isinstance(value, Mapping):
-        return {key: _stringify_structure(item) for key, item in value.items()}
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            child_schema: _SchemaNode | None = None
+            allowed = True
+
+            if isinstance(schema, _SchemaNode) and schema.children is not None:
+                if key in schema.children:
+                    child_schema = schema.children[key]
+                else:
+                    allowed = schema.allow_extra
+            elif isinstance(schema, _SchemaNode) and schema.children is None:
+                allowed = schema.allow_extra
+
+            if not allowed:
+                continue
+
+            result[key] = _stringify_structure(item, child_schema)
+        return result
+
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_stringify_structure(item) for item in value]
+        child_schema = schema.sequence if isinstance(schema, _SchemaNode) else None
+        return [_stringify_structure(item, child_schema) for item in value]
     if isinstance(value, (bytes, bytearray)):
         return value.decode("utf-8", errors="ignore")
     if isinstance(value, (int, float, str)) or value is None:
