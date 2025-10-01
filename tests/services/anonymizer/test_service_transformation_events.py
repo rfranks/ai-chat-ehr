@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date
+import hashlib
+import hmac
+import os
 from pathlib import Path
 import sys
 import types
@@ -224,11 +227,18 @@ from services.anonymizer.models import TransformationEvent
 from services.anonymizer.models.firestore import (
     FirestoreAddress,
     FirestoreCoverage,
+    FirestoreEHRMetadata,
     FirestoreName,
     FirestorePatientDocument,
 )
 import services.anonymizer.service as service_module
-from services.anonymizer.service import _anonymize_coverage, _anonymize_document, _extract_address
+from services.anonymizer.service import (
+    _anonymize_coverage,
+    _anonymize_document,
+    _extract_address,
+    _coerce_uuid,
+)
+from uuid import NAMESPACE_URL, uuid5
 
 
 class _StubPresidioEngine:
@@ -258,6 +268,15 @@ class _StubPresidioEngine:
             surrogate=surrogate,
         )
         return anonymized, [event]
+
+
+class _EchoPresidioEngine:
+    """Stub engine that returns the original text without events."""
+
+    def anonymize(self, text: str, *, collect_events: bool = False):  # type: ignore[override]
+        if collect_events:
+            return text, []
+        return text
 
 
 def _build_document() -> FirestorePatientDocument:
@@ -358,6 +377,59 @@ def test_accumulates_address_events_without_leaking_phi() -> None:
         synthesized_address.postal_code
         in synthesized_events["PATIENT_ADDRESS_POSTAL_CODE"].surrogate
     )
+
+
+def test_identifier_fallback_hashes_and_emits_events() -> None:
+    engine = _EchoPresidioEngine()
+    document = FirestorePatientDocument(
+        name=FirestoreName(first="Alice", last="Smith"),
+        facility_id="FACILITY-123",
+        tenant_id="TENANT-456",
+        ehr=FirestoreEHRMetadata(instance_id="INSTANCE-789", patient_id="PATIENT-321"),
+        coverages=[FirestoreCoverage(member_id="MEMBER-0001")],
+    )
+
+    secret = os.environ.get("ANONYMIZER_IDENTIFIER_HASH_SECRET", "ai-chat-ehr-anonymizer").encode(
+        "utf-8"
+    )
+
+    def _expected(value: str) -> str:
+        return hmac.new(secret, value.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    events: list[TransformationEvent] = []
+    anonymized = _anonymize_document(engine, document, events)
+
+    expected_hashes = {
+        "FACILITY_ID": _expected("FACILITY-123"),
+        "TENANT_ID": _expected("TENANT-456"),
+        "EHR_INSTANCE_ID": _expected("INSTANCE-789"),
+        "EHR_PATIENT_ID": _expected("PATIENT-321"),
+        "INSURANCE_MEMBER_ID": _expected("MEMBER-0001"),
+    }
+
+    assert anonymized.facility_id == expected_hashes["FACILITY_ID"]
+    assert anonymized.tenant_id == expected_hashes["TENANT_ID"]
+    assert anonymized.ehr is not None
+    assert anonymized.ehr.instance_id == expected_hashes["EHR_INSTANCE_ID"]
+    assert anonymized.ehr.patient_id == expected_hashes["EHR_PATIENT_ID"]
+    assert anonymized.coverages[0].member_id == expected_hashes["INSURANCE_MEMBER_ID"]
+
+    captured = {event.entity_type for event in events}
+    assert captured == set(expected_hashes)
+    for event in events:
+        assert event.action == "pseudonymize"
+        assert event.surrogate == "Applied HMAC pseudonymization fallback for identifier."
+
+    document_id = "doc-42"
+    facility_uuid_first = _coerce_uuid(anonymized.facility_id, fallback=f"facility:{document_id}")
+    facility_uuid_second = _coerce_uuid(anonymized.facility_id, fallback=f"facility:{document_id}")
+    assert facility_uuid_first == facility_uuid_second
+    assert facility_uuid_first == uuid5(NAMESPACE_URL, anonymized.facility_id.strip())
+
+    tenant_uuid_first = _coerce_uuid(anonymized.tenant_id, fallback=f"tenant:{document_id}")
+    tenant_uuid_second = _coerce_uuid(anonymized.tenant_id, fallback=f"tenant:{document_id}")
+    assert tenant_uuid_first == tenant_uuid_second
+    assert tenant_uuid_first == uuid5(NAMESPACE_URL, anonymized.tenant_id.strip())
 
 
 def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
