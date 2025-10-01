@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import date
+from datetime import date, datetime
 import hashlib
 import hmac
 import os
@@ -11,6 +11,8 @@ from pathlib import Path
 import sys
 import types
 from unittest.mock import Mock
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
@@ -582,14 +584,26 @@ def test_anonymize_coverage_is_deterministic_for_phi_fields() -> None:
     assert first_surrogates == second_surrogates
 
 
-def test_anonymize_coverage_generalizes_plan_effective_date() -> None:
+@pytest.mark.parametrize(
+    ("raw_value", "expected_year"),
+    (
+        (date(2015, 4, 1), 2015),
+        (datetime(2018, 12, 31, 23, 45, 0), 2018),
+        ("2020-07-04", 2020),
+    ),
+)
+def test_anonymize_coverage_generalizes_plan_effective_date_variants(
+    raw_value: date | datetime | str, expected_year: int
+) -> None:
     engine = _StubPresidioEngine({})
-    coverage = FirestoreCoverage(plan_effective_date=date(2015, 4, 1))
+    coverage = FirestoreCoverage()
+    object.__setattr__(coverage, "plan_effective_date", raw_value)
 
     events: list[TransformationEvent] = []
     anonymized = _anonymize_coverage(engine, coverage, events)
 
-    assert anonymized.plan_effective_date == date(2015, 1, 1)
+    expected = date(expected_year, 1, 1)
+    assert anonymized.plan_effective_date == expected
 
     plan_events = [
         event for event in events if event.entity_type == "COVERAGE_PLAN_EFFECTIVE_DATE"
@@ -597,7 +611,7 @@ def test_anonymize_coverage_generalizes_plan_effective_date() -> None:
     assert len(plan_events) == 1
     plan_event = plan_events[0]
     assert plan_event.action == "generalize"
-    assert "2015-01-01" in plan_event.surrogate
+    assert anonymized.plan_effective_date.isoformat() in plan_event.surrogate
 
 
 def test_anonymize_coverage_logs_malformed_plan_effective_date(monkeypatch) -> None:
@@ -617,6 +631,37 @@ def test_anonymize_coverage_logs_malformed_plan_effective_date(monkeypatch) -> N
     ]
 
     mock_logger.warning.assert_called_once()
+    args, kwargs = mock_logger.warning.call_args
+    assert "malformed input" in args[0]
+    assert kwargs.get("event") == "anonymizer.coverage.plan_effective_date_invalid"
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    (
+        "04/01/2015",
+        123456,
+        object(),
+    ),
+)
+def test_anonymize_coverage_generalizes_plan_effective_date_invalid_inputs(
+    raw_value: object, monkeypatch
+) -> None:
+    engine = _StubPresidioEngine({})
+    coverage = FirestoreCoverage()
+    object.__setattr__(coverage, "plan_effective_date", raw_value)
+
+    mock_logger = Mock()
+    monkeypatch.setattr(service_module, "logger", mock_logger)
+
+    events: list[TransformationEvent] = []
+    anonymized = _anonymize_coverage(engine, coverage, events)
+
+    assert anonymized.plan_effective_date is None
+    assert not [
+        event for event in events if event.entity_type == "COVERAGE_PLAN_EFFECTIVE_DATE"
+    ]
+    assert mock_logger.warning.call_count == 1
     args, kwargs = mock_logger.warning.call_args
     assert "malformed input" in args[0]
     assert kwargs.get("event") == "anonymizer.coverage.plan_effective_date_invalid"
