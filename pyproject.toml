@@ -40,8 +40,6 @@ dependencies = [
     "loguru>=0.7,<0.8",
     "structlog>=24.1,<25",
     "tenacity>=8.2,<9",
-    # Presidio analyzer provides deterministic PII detection used by the anonymizer
-    "presidio-analyzer>=2.2,<3",
 ]
 
 [project.optional-dependencies]
