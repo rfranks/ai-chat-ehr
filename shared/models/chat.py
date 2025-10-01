@@ -106,7 +106,7 @@ class ChatPrompt(CamelModel):
     )
     categories: Optional[list[str]] = Field(
         default_factory=list,
-        description="The categories of data rquired to answer or fullfil the prompt",
+        description="The categories of data required to answer or fulfill the prompt",
     )
     template: Optional[str] = Field(
         default=None,
