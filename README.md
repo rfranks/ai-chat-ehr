@@ -82,7 +82,7 @@ defaults if unset.
    uvicorn services.prompt_catalog.app:app --reload --port 8001
    uvicorn services.patient_context.app:app --reload --port 8002
    uvicorn services.chain_executor.app:app --reload --port 8003
-   uvicorn services.api_gateway.app:app --reload --port 8000
+   uvicorn services.api_gateway.main:app --reload --port 8000
    ```
 
 ### Option B: Docker Compose stack

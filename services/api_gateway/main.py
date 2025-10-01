@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
+import uvicorn
 from fastapi import FastAPI
 
-from .app import app, get_app as _get_app
+from .app import get_app
 
-__all__ = ["app", "get_app"]
+app: FastAPI = get_app()
 
-
-def get_app() -> FastAPI:
-    """Return the configured FastAPI application."""
-
-    return _get_app()
+__all__ = ["app", "get_app", "main"]
 
 
-if __name__ == "__main__":  # pragma: no cover
-    import uvicorn
+def main() -> None:
+    """Run the API gateway using ``uvicorn``."""
 
     uvicorn.run(
         "services.api_gateway.main:app",
@@ -24,3 +21,7 @@ if __name__ == "__main__":  # pragma: no cover
         port=8000,
         reload=True,
     )
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()
