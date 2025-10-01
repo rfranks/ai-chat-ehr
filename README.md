@@ -109,7 +109,15 @@ Provide the database DSN via `ANONYMIZER_POSTGRES_DSN` (or switch to
 `ANONYMIZER_STORAGE_MODE=sqlfile` to emit `INSERT` statements for review) in your
 `.env` file or shell environment before launching the service. When running with
 Docker Compose the service reads the same `.env` file, so add any Firestore
-emulator credentials or service account configuration there as well.
+emulator credentials or service account configuration there as well. When
+connecting to a real Firestore instance, set the following variables:
+
+* `ANONYMIZER_FIRESTORE_SOURCE=credentials` to enable the credentialed data
+  source.
+* `ANONYMIZER_FIRESTORE_CREDENTIALS` with the absolute path to the service
+  account JSON file that has Firestore access.
+* `ANONYMIZER_FIRESTORE_PROJECT` (optional) when you need to override the
+  project embedded in the service account file.
 
 Start the FastAPI application locally (see the commands above) or rely on Docker
 Compose to publish it on <http://localhost:8004>. Once online, trigger
