@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -156,6 +157,7 @@ async def process_patient(
         original=document,
         anonymized=anonymized,
         document_id=document_id,
+        event_accumulator=transformation_events,
     )
 
     try:
@@ -329,6 +331,7 @@ def _convert_to_patient_row(
     original: FirestorePatientDocument,
     anonymized: FirestorePatientDocument,
     document_id: str,
+    event_accumulator: list[TransformationEvent] | None = None,
 ) -> StoragePatientRow:
     tenant_uuid = _coerce_uuid(original.tenant_id, fallback=f"tenant:{document_id}")
     facility_uuid = _coerce_uuid(original.facility_id, fallback=f"facility:{document_id}")
@@ -358,11 +361,55 @@ def _convert_to_patient_row(
         name_last=anonymized.name.last,
         gender=(anonymized.gender or "unknown").lower(),
         status=DEFAULT_PATIENT_STATUS,
-        dob=None,
+        dob=_generalize_date_of_birth(original.dob, event_accumulator=event_accumulator),
         legal_mailing_address=legal_address,
     )
 
     return StoragePatientRow(**patient_model.model_dump())
+
+
+def _generalize_date_of_birth(
+    dob: date | None,
+    *,
+    event_accumulator: list[TransformationEvent] | None = None,
+) -> date | None:
+    """Generalize ``dob`` following the HIPAA Safe Harbor age requirement."""
+
+    if dob is None:
+        return None
+
+    today = date.today()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+    if age >= 90:
+        if event_accumulator is not None:
+            event_accumulator.append(
+                TransformationEvent(
+                    entity_type="PATIENT_DOB",
+                    action="suppress",
+                    start=0,
+                    end=0,
+                    surrogate=(
+                        "Removed patient date of birth for individuals aged 90 or older."
+                    ),
+                )
+            )
+        return None
+
+    generalized = date(dob.year, 1, 1)
+
+    if event_accumulator is not None:
+        event_accumulator.append(
+            TransformationEvent(
+                entity_type="PATIENT_DOB",
+                action="generalize",
+                start=0,
+                end=0,
+                surrogate=f"Generalized patient date of birth to {generalized.isoformat()}.",
+            )
+        )
+
+    return generalized
 
 
 def _coerce_uuid(value: str | None, *, fallback: str) -> UUID:
