@@ -778,3 +778,103 @@ def test_process_patient_wraps_storage_errors_with_phase_details(monkeypatch: py
 
     _assert_phase(excinfo.value, "storage")
 
+
+def test_process_patient_logs_aggregate_transformation_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Persisted patient log entries should only expose aggregate transformation data."""
+
+    storage = _StubStorage()
+    sample_row = StoragePatientRow(
+        tenant_id=uuid4(),
+        facility_id=uuid4(),
+        name_first="Anon",
+        name_last="Patient",
+        gender="unknown",
+        status="inactive",
+    )
+
+    events = [
+        service_module.TransformationEvent(
+            entity_type="PERSON",
+            action="replace",
+            start=0,
+            end=5,
+            surrogate="Alice Example",
+        ),
+        service_module.TransformationEvent(
+            entity_type="DATE_TIME",
+            action="redact",
+            start=10,
+            end=18,
+            surrogate="1990-01-01",
+        ),
+        service_module.TransformationEvent(
+            entity_type="PERSON",
+            action="replace",
+            start=20,
+            end=25,
+            surrogate="Bob Example",
+        ),
+    ]
+
+    def _fake_anonymize(_engine, document, accumulator):
+        if accumulator is not None:
+            accumulator.extend(events)
+        return document
+
+    monkeypatch.setattr(service_module, "_anonymize_document", _fake_anonymize)
+    monkeypatch.setattr(service_module, "_convert_to_patient_row", lambda **_: sample_row)
+
+    class _CapturingLogger:
+        def __init__(self) -> None:
+            self.records: list[dict[str, Any]] = []
+
+        def bind(self, **_kwargs: Any) -> "_CapturingLogger":  # pragma: no cover - passthrough
+            return self
+
+        def info(self, message: str, **kwargs: Any) -> None:
+            self.records.append({"message": message, "kwargs": kwargs})
+
+    logger = _CapturingLogger()
+    monkeypatch.setattr(service_module, "logger", logger)
+
+    patient_id, transformation_events = asyncio.run(
+        service_module.process_patient(
+            "patients",
+            "doc-aggregate",
+            firestore=_ValidFirestore(),
+            anonymizer=_StubAnonymizer(),
+            storage=storage,
+        )
+    )
+
+    assert isinstance(patient_id, UUID)
+    assert len(transformation_events) == len(events)
+
+    persisted_log = next(
+        record
+        for record in logger.records
+        if record["kwargs"].get("event") == "anonymizer.patient.persisted"
+    )
+
+    expected_summary = {
+        "total_transformations": 3,
+        "actions": {"redact": 1, "replace": 2},
+        "entities": {
+            "DATE_TIME": {"count": 1, "actions": {"redact": 1}},
+            "PERSON": {"count": 2, "actions": {"replace": 2}},
+        },
+    }
+
+    logged_summary = persisted_log["kwargs"].get("transformation_summary")
+    assert logged_summary == expected_summary
+    assert persisted_log["kwargs"].get("total_transformations") == expected_summary["total_transformations"]
+    assert (
+        persisted_log["kwargs"].get("transformation_actions")
+        == expected_summary["actions"]
+    )
+    assert (
+        persisted_log["kwargs"].get("transformation_entities")
+        == expected_summary["entities"]
+    )
+    assert "Alice" not in repr(persisted_log)
+
