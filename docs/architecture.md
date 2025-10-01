@@ -21,8 +21,10 @@ key, and appended to the execution context. The buffered endpoint runs each
 `LLMChain` sequentially, updating the variable map and aggregating outputs for
 inclusion in the final `ChainExecutionResponse`. The streaming endpoint executes
 non-final steps the same way but streams incremental chunks from the final LLM
-step as server-sent events, emitting metadata, intermediate step payloads, and a
-final response envelope when completion succeeds or an error occurs.
+step as server-sent events, emitting metadata and intermediate step payloads.
+When the final LLM call completes successfully, the server sends a concluding
+`response` event containing the response envelope. Error cases instead emit
+`error` events and terminate without sending a final response envelope.
 
 ## Provider resolution
 
