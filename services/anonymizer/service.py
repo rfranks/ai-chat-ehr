@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 import hashlib
+import hmac
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -41,6 +42,7 @@ from services.anonymizer.storage.sqlfile import SQLFileStorage
 ENV_POSTGRES_DSN = "ANONYMIZER_POSTGRES_DSN"
 ENV_STORAGE_MODE = "ANONYMIZER_STORAGE_MODE"
 ENV_SQL_OUTPUT_PATH = "ANONYMIZER_STORAGE_SQL_PATH"
+ENV_IDENTIFIER_HASH_SECRET = "ANONYMIZER_IDENTIFIER_HASH_SECRET"
 DEFAULT_PATIENT_STATUS = "inactive"
 DEFAULT_SQL_OUTPUT_PATH = "anonymizer_dry_run.sql"
 STORAGE_MODE_DATABASE = "database"
@@ -177,6 +179,56 @@ class _ServiceDependencies:
 _dependencies: _ServiceDependencies | None = None
 
 logger = get_logger(__name__)
+
+_identifier_hash_key: bytes | None = None
+
+
+def _get_identifier_hash_key() -> bytes:
+    global _identifier_hash_key
+    if _identifier_hash_key is None:
+        secret = os.environ.get(ENV_IDENTIFIER_HASH_SECRET)
+        if not secret:
+            secret = "ai-chat-ehr-anonymizer"
+        _identifier_hash_key = secret.encode("utf-8")
+    return _identifier_hash_key
+
+
+def _hash_identifier(value: str) -> str:
+    key = _get_identifier_hash_key()
+    digest = hmac.new(key, value.encode("utf-8"), hashlib.sha256).hexdigest()
+    return digest
+
+
+def _apply_identifier_fallback(
+    *,
+    original: str | None,
+    anonymized: str | None,
+    entity_type: str,
+    event_accumulator: list[TransformationEvent] | None = None,
+) -> str | None:
+    if original is None or anonymized is None:
+        return anonymized
+
+    source = original.strip()
+    candidate = anonymized.strip()
+
+    if not source or candidate != source:
+        return anonymized
+
+    hashed = _hash_identifier(source)
+
+    if event_accumulator is not None:
+        event_accumulator.append(
+            TransformationEvent(
+                entity_type=entity_type,
+                action="pseudonymize",
+                start=0,
+                end=0,
+                surrogate="Applied HMAC pseudonymization fallback for identifier.",
+            )
+        )
+
+    return hashed
 
 
 def configure_service(
@@ -333,6 +385,11 @@ def _anonymize_document(
 ) -> FirestorePatientDocument:
     anonymized = document.model_copy(deep=True)
 
+    original_facility_id = document.facility_id
+    original_tenant_id = document.tenant_id
+    original_ehr_instance_id = document.ehr.instance_id if document.ehr else None
+    original_ehr_patient_id = document.ehr.patient_id if document.ehr else None
+
     anonymized.name.first = _anonymize_text(engine, anonymized.name.first, event_accumulator)
     anonymized.name.middle = _anonymize_text(engine, anonymized.name.middle, event_accumulator)
     anonymized.name.last = _anonymize_text(engine, anonymized.name.last, event_accumulator)
@@ -351,6 +408,12 @@ def _anonymize_document(
             anonymized.facility_id,
             event_accumulator,
         )
+    anonymized.facility_id = _apply_identifier_fallback(
+        original=original_facility_id,
+        anonymized=anonymized.facility_id,
+        entity_type="FACILITY_ID",
+        event_accumulator=event_accumulator,
+    )
     if anonymized.tenant_name:
         anonymized.tenant_name = _anonymize_text(
             engine,
@@ -363,6 +426,12 @@ def _anonymize_document(
             anonymized.tenant_id,
             event_accumulator,
         )
+    anonymized.tenant_id = _apply_identifier_fallback(
+        original=original_tenant_id,
+        anonymized=anonymized.tenant_id,
+        entity_type="TENANT_ID",
+        event_accumulator=event_accumulator,
+    )
 
     if anonymized.ehr:
         anonymized.ehr.provider = _anonymize_text(
@@ -375,10 +444,22 @@ def _anonymize_document(
             anonymized.ehr.instance_id,
             event_accumulator,
         )
+        anonymized.ehr.instance_id = _apply_identifier_fallback(
+            original=original_ehr_instance_id,
+            anonymized=anonymized.ehr.instance_id,
+            entity_type="EHR_INSTANCE_ID",
+            event_accumulator=event_accumulator,
+        )
         anonymized.ehr.patient_id = _anonymize_text(
             engine,
             anonymized.ehr.patient_id,
             event_accumulator,
+        )
+        anonymized.ehr.patient_id = _apply_identifier_fallback(
+            original=original_ehr_patient_id,
+            anonymized=anonymized.ehr.patient_id,
+            entity_type="EHR_PATIENT_ID",
+            event_accumulator=event_accumulator,
         )
         anonymized.ehr.facility_id = _anonymize_text(
             engine,
@@ -399,11 +480,18 @@ def _anonymize_coverage(
     coverage: FirestoreCoverage,
     event_accumulator: list[TransformationEvent] | None = None,
 ) -> FirestoreCoverage:
+    original_member_id = coverage.member_id
     coverage = coverage.model_copy(deep=True)
 
     # Identifiers that could reveal payer or subscriber identity must remain
     # anonymized to protect PHI.
     coverage.member_id = _anonymize_text(engine, coverage.member_id, event_accumulator)
+    coverage.member_id = _apply_identifier_fallback(
+        original=original_member_id,
+        anonymized=coverage.member_id,
+        entity_type="INSURANCE_MEMBER_ID",
+        event_accumulator=event_accumulator,
+    )
     coverage.payer_name = _anonymize_text(engine, coverage.payer_name, event_accumulator)
     coverage.payer_id = _anonymize_text(engine, coverage.payer_id, event_accumulator)
     coverage.first_name = _anonymize_text(engine, coverage.first_name, event_accumulator)
@@ -593,17 +681,17 @@ def _convert_to_patient_row(
     document_id: str,
     event_accumulator: list[TransformationEvent] | None = None,
 ) -> StoragePatientRow:
-    tenant_uuid = _coerce_uuid(original.tenant_id, fallback=f"tenant:{document_id}")
-    facility_uuid = _coerce_uuid(original.facility_id, fallback=f"facility:{document_id}")
+    tenant_uuid = _coerce_uuid(anonymized.tenant_id, fallback=f"tenant:{document_id}")
+    facility_uuid = _coerce_uuid(anonymized.facility_id, fallback=f"facility:{document_id}")
     ehr_instance_uuid: UUID | None = None
     ehr_external_id: str | None = None
     ehr_connection_status: str | None = None
 
     if original.ehr and (original.ehr.instance_id or original.ehr.patient_id):
         ehr_connection_status = "connected"
-        if original.ehr.instance_id:
+        if anonymized.ehr and anonymized.ehr.instance_id:
             ehr_instance_uuid = _coerce_uuid(
-                original.ehr.instance_id,
+                anonymized.ehr.instance_id,
                 fallback=f"ehr-instance:{document_id}",
             )
         if anonymized.ehr and anonymized.ehr.patient_id:
