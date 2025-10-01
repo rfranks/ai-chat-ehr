@@ -7,7 +7,8 @@ import hashlib
 import hmac
 import os
 from dataclasses import dataclass
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Literal, Mapping, cast
 from uuid import UUID, NAMESPACE_URL, uuid5
 
 from pydantic import ValidationError
@@ -159,8 +160,33 @@ _CITY_NAMES = (
 )
 
 
+ProcessingPhase = Literal["fetch", "validation", "storage"]
+
+
 class PatientProcessingError(RuntimeError):
     """Base error raised when a patient cannot be processed."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        phase: ProcessingPhase | None = None,
+        details: Mapping[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        sanitized: dict[str, Any] = {}
+        if phase is not None:
+            sanitized["phase"] = phase
+        if details:
+            sanitized.update(details)
+        self.phase: ProcessingPhase | None = cast(ProcessingPhase | None, sanitized.get("phase"))
+        self._details = MappingProxyType(dict(sanitized))
+
+    @property
+    def details(self) -> Mapping[str, Any]:
+        """Return structured error metadata describing the processing failure."""
+
+        return self._details
 
 
 class PatientNotFoundError(PatientProcessingError):
@@ -336,7 +362,15 @@ async def process_patient(
 
     deps = _resolve_dependencies(firestore=firestore, anonymizer=anonymizer, storage=storage)
 
-    payload = deps.firestore.get_patient(collection, document_id)
+    try:
+        payload = deps.firestore.get_patient(collection, document_id)
+    except PatientProcessingError:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive runtime guard
+        raise PatientProcessingError(
+            "Failed to retrieve the patient document from Firestore.",
+            phase="fetch",
+        ) from exc
     if payload is None:
         raise PatientNotFoundError(
             "Patient document could not be located for the supplied identifier.",
@@ -345,7 +379,10 @@ async def process_patient(
     try:
         document = FirestorePatientDocument.model_validate(payload)
     except ValidationError as exc:  # pragma: no cover - defensive validation
-        raise PatientProcessingError("Patient document is malformed and cannot be processed.") from exc
+        raise PatientProcessingError(
+            "Patient document is malformed and cannot be processed.",
+            phase="validation",
+        ) from exc
 
     logger.info(
         "Fetched patient document metadata from Firestore.",
@@ -390,7 +427,10 @@ async def process_patient(
             "An anonymized patient record already exists for this facility and EHR source.",
         ) from exc
     except StorageError as exc:  # pragma: no cover - defensive runtime guard
-        raise PatientProcessingError("Failed to persist the anonymized patient record.") from exc
+        raise PatientProcessingError(
+            "Failed to persist the anonymized patient record.",
+            phase="storage",
+        ) from exc
 
 
 def _resolve_dependencies(
