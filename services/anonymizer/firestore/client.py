@@ -92,7 +92,7 @@ class CredentialedFirestoreDataSource(FirestoreDataSource):
 
     def _create_client(self) -> Any:
         try:
-            from google.cloud import firestore  # type: ignore[import]
+            from google.cloud import firestore  # type: ignore[attr-defined,import-untyped]
         except ImportError as exc:  # pragma: no cover - dependency is optional in tests
             raise FirestoreConfigurationError(
                 "google-cloud-firestore must be installed to use the credentialed Firestore data source."

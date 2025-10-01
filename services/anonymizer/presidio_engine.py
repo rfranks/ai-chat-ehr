@@ -7,7 +7,7 @@ from enum import Enum
 import hashlib
 import hmac
 import re
-from typing import Callable, Iterable, Mapping, MutableSequence
+from typing import Any, Callable, Iterable, Mapping, MutableSequence
 
 from presidio_analyzer import (
     AnalyzerEngine,
@@ -198,7 +198,7 @@ class OpenAILLMSynthesizer:
             prompt += f"\nContext: {context.strip()}"
         prompt += f"\nOriginal: {original}\nSurrogate:"
 
-        response = self._client.responses.create(
+        response: Any = self._client.responses.create(
             model=self._model,
             input=prompt,
             temperature=self._temperature,
