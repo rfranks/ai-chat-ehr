@@ -33,9 +33,7 @@ register_exception_handlers(app)
 
 
 @app.exception_handler(HTTPException)
-async def _handle_http_exception(
-    _request: object, exc: HTTPException
-) -> JSONResponse:
+async def _handle_http_exception(_request: object, exc: HTTPException) -> JSONResponse:
     """Return a minimal RFC 7231 style payload for ``HTTPException`` errors."""
 
     detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)

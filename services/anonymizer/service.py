@@ -11,21 +11,6 @@ from types import MappingProxyType
 from typing import Any, Literal, Mapping, cast
 from uuid import UUID, NAMESPACE_URL, uuid5
 
-try:  # pragma: no cover - pydantic is an optional runtime dependency for tests
-    from pydantic import ValidationError as _PydanticValidationError
-except Exception:  # pragma: no cover - defensive guard for import-time issues
-    _PydanticValidationError = Exception  # type: ignore[assignment]
-
-
-class ValidationError(Exception):
-    """Lightweight validation error compatible with test stubs."""
-
-    def __init__(self, message: str = "Validation failed") -> None:
-        super().__init__(message)
-
-
-_VALIDATION_ERRORS = (_PydanticValidationError, ValidationError)
-
 from shared.observability.logger import get_logger
 
 from services.anonymizer.firestore.client import (
@@ -56,6 +41,21 @@ from services.anonymizer.storage.postgres import (
     StorageError,
 )
 from services.anonymizer.storage.sqlfile import SQLFileStorage
+
+try:  # pragma: no cover - pydantic is an optional runtime dependency for tests
+    from pydantic import ValidationError as _PydanticValidationError
+except Exception:  # pragma: no cover - defensive guard for import-time issues
+    _PydanticValidationError = Exception  # type: ignore[assignment]
+
+
+class ValidationError(Exception):
+    """Lightweight validation error compatible with test stubs."""
+
+    def __init__(self, message: str = "Validation failed") -> None:
+        super().__init__(message)
+
+
+_VALIDATION_ERRORS = (_PydanticValidationError, ValidationError)
 
 ENV_POSTGRES_DSN = "ANONYMIZER_POSTGRES_DSN"
 ENV_STORAGE_MODE = "ANONYMIZER_STORAGE_MODE"

@@ -161,4 +161,6 @@ async def test_read_patient_context_with_whitespace_categories(
 
     payload = response.json()
     assert payload["labResults"], "Expected lab results when whitespace is trimmed"
-    assert payload["clinicalNotes"], "Expected clinical notes when whitespace is trimmed"
+    assert payload["clinicalNotes"], (
+        "Expected clinical notes when whitespace is trimmed"
+    )
