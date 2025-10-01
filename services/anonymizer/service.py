@@ -29,7 +29,10 @@ from services.anonymizer.models.firestore import (
     FirestorePatientDocument,
 )
 from services.anonymizer.models.postgres import PatientRow as PatientModel
-from services.anonymizer.presidio_engine import PresidioAnonymizerEngine
+from services.anonymizer.presidio_engine import (
+    PresidioAnonymizerEngine,
+    PresidioEngineConfig,
+)
 from services.anonymizer.storage.interfaces import PatientStorage
 from services.anonymizer.storage.postgres import (
     ConstraintViolationError,
@@ -43,6 +46,9 @@ ENV_POSTGRES_DSN = "ANONYMIZER_POSTGRES_DSN"
 ENV_STORAGE_MODE = "ANONYMIZER_STORAGE_MODE"
 ENV_SQL_OUTPUT_PATH = "ANONYMIZER_STORAGE_SQL_PATH"
 ENV_IDENTIFIER_HASH_SECRET = "ANONYMIZER_IDENTIFIER_HASH_SECRET"
+ENV_ANONYMIZER_HASH_SECRET = "ANONYMIZER_HASH_SECRET"
+ENV_ANONYMIZER_HASH_PREFIX = "ANONYMIZER_HASH_PREFIX"
+ENV_ANONYMIZER_HASH_LENGTH = "ANONYMIZER_HASH_LENGTH"
 DEFAULT_PATIENT_STATUS = "inactive"
 DEFAULT_SQL_OUTPUT_PATH = "anonymizer_dry_run.sql"
 STORAGE_MODE_DATABASE = "database"
@@ -242,7 +248,8 @@ def configure_service(
     global _dependencies
 
     firestore = firestore or create_firestore_data_source()
-    anonymizer = anonymizer or PresidioAnonymizerEngine()
+    config = _create_presidio_config_from_env()
+    anonymizer = anonymizer or PresidioAnonymizerEngine(config=config)
     storage = storage or _create_storage_from_env()
 
     _dependencies = _ServiceDependencies(
@@ -258,6 +265,31 @@ def _get_dependencies() -> _ServiceDependencies:
         configure_service()
     assert _dependencies is not None  # mypy/runtime guard
     return _dependencies
+
+
+def _create_presidio_config_from_env() -> PresidioEngineConfig:
+    """Build a :class:`PresidioEngineConfig` using environment overrides."""
+
+    kwargs: dict[str, object] = {}
+
+    secret = os.getenv(ENV_ANONYMIZER_HASH_SECRET)
+    if secret:
+        kwargs["hash_secret"] = secret
+
+    prefix = os.getenv(ENV_ANONYMIZER_HASH_PREFIX)
+    if prefix:
+        kwargs["hash_prefix"] = prefix
+
+    length = os.getenv(ENV_ANONYMIZER_HASH_LENGTH)
+    if length:
+        try:
+            kwargs["hash_length"] = int(length)
+        except ValueError as exc:  # pragma: no cover - defensive parsing
+            raise ServiceConfigurationError(
+                "ANONYMIZER_HASH_LENGTH must be an integer value."
+            ) from exc
+
+    return PresidioEngineConfig(**kwargs)
 
 
 def _create_storage_from_env() -> PatientStorage:
