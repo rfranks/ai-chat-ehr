@@ -17,6 +17,11 @@ from shared.observability.middleware import (
 
 from services.anonymizer.logging_utils import scrub_for_logging
 from services.anonymizer.reporting import summarize_transformations
+from services.anonymizer.schemas import (
+    AnonymizeResponse,
+    TransformationAggregates,
+    TransformationSummary,
+)
 from services.anonymizer.service import (
     DuplicatePatientError,
     PatientNotFoundError,
@@ -207,11 +212,12 @@ DocumentParam = Annotated[
 @router.post(
     "/collections/{collection}/documents/{document_id}",
     status_code=status.HTTP_202_ACCEPTED,
+    response_model=AnonymizeResponse,
 )
 async def anonymize_document(
     collection: CollectionParam,
     document_id: DocumentParam,
-) -> dict[str, Any]:
+) -> AnonymizeResponse:
     """Fetch, anonymize, and persist a Firestore patient document."""
 
     collection_token = collection.strip()
@@ -222,13 +228,14 @@ async def anonymize_document(
             detail="Collection and document identifiers must be non-empty strings.",
         )
 
-    patient_id = await process_patient(collection_token, document_token)
+    patient_id, transformation_events = await process_patient(collection_token, document_token)
 
-    summary = summarize_transformations([])
-    summary_payload = {
-        "recordId": str(patient_id),
-        "transformations": summary,
-    }
+    transformation_summary = summarize_transformations(transformation_events)
+    aggregates = TransformationAggregates.model_validate(transformation_summary)
+    response_payload = AnonymizeResponse(
+        status="accepted",
+        summary=TransformationSummary(record_id=patient_id, transformations=aggregates),
+    )
 
     logger.info(
         "Accepted anonymizer request for processing.",
@@ -242,13 +249,13 @@ async def anonymize_document(
             },
             allow_keys={"collection_length", "document_id_length"},
         ),
-        response=scrub_for_logging(summary_payload, allow_keys={"recordId", "status"}),
+        response=scrub_for_logging(
+            response_payload.model_dump(by_alias=True),
+            allow_keys={"recordId", "status"},
+        ),
     )
 
-    return {
-        "status": "accepted",
-        "summary": summary_payload,
-    }
+    return response_payload
 
 # Placeholder routers for anonymization endpoints will be added here in the future.
 app.include_router(router)
