@@ -528,20 +528,14 @@ def _apply_rule(
 
 
 DEFAULT_FIELD_RULES: tuple[FieldRule, ...] = (
-    FieldRule(("demographics", "first_name"), "PERSON"),
-    FieldRule(("demographics", "middle_name"), "PERSON"),
-    FieldRule(("demographics", "last_name"), "PERSON"),
-    FieldRule(("demographics", "full_name"), "PERSON"),
-    FieldRule(("demographics", "address"), "STREET_ADDRESS"),
-    FieldRule(("demographics", "phone"), "PHONE_NUMBER"),
-    FieldRule(("demographics", "email"), "EMAIL_ADDRESS"),
-    FieldRule(("demographics", "mrn"), "MEDICAL_RECORD_NUMBER"),
-    FieldRule(("care_team", "*", "name"), "PERSON"),
-    FieldRule(("care_team", "*", "organization"), "ORGANIZATION"),
-    FieldRule(("encounters", "*", "provider"), "PERSON"),
-    FieldRule(("encounters", "*", "location"), "FACILITY_NAME"),
-    FieldRule(("clinical_notes", "*", "author"), "PERSON"),
-    FieldRule(("additional_notes", "*", "author"), "PERSON"),
+    FieldRule(("name", "first"), "PERSON"),
+    FieldRule(("name", "last"), "PERSON"),
+    FieldRule(("dob",), "DATE_TIME"),
+    FieldRule(("coverages", "*", "first_name"), "PERSON"),
+    FieldRule(("coverages", "*", "last_name"), "PERSON"),
+    FieldRule(("coverages", "*", "member_id"), "MEDICAL_RECORD_NUMBER"),
+    FieldRule(("coverages", "*", "address", "address_line1"), "STREET_ADDRESS"),
+    FieldRule(("ehr", "patient_id"), "MEDICAL_RECORD_NUMBER"),
 )
 
 
