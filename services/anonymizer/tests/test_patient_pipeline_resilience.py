@@ -6,13 +6,19 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytest.importorskip("pydantic")
+
 from services.anonymizer.app.clients.firestore_client import FirestorePatientDocument
+from services.anonymizer.app.models import PipelinePatientRecord
 from services.anonymizer.app.pipelines.patient_pipeline import PatientPipeline
 from services.anonymizer.app.pipelines.resilience import RetryPolicy
 
 
 def _build_minimal_patient_document(document_id: str) -> FirestorePatientDocument:
-    return FirestorePatientDocument(document_id=document_id, data={"patient": {}})
+    payload = PipelinePatientRecord.model_validate({}).model_dump(
+        mode="json", by_alias=False, exclude_none=True
+    )
+    return FirestorePatientDocument(document_id=document_id, data={"patient": payload})
 
 
 @pytest.mark.asyncio

@@ -14,6 +14,7 @@ __all__ = [
     "FirestoreNormalizedPatient",
     "FirestorePatientDocumentData",
     "FirestorePatientDocumentSnapshot",
+    "PipelinePatientRecord",
 ]
 
 
@@ -86,3 +87,9 @@ class FirestorePatientDocumentSnapshot(BaseModel):
 
     document_id: str = Field(alias="documentId")
     data: FirestorePatientDocumentData
+
+
+class PipelinePatientRecord(PatientRecord):
+    """Patient payload schema tailored for the anonymizer pipeline."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)

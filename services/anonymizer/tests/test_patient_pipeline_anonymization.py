@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,10 +10,12 @@ import pytest
 pytest.importorskip("pydantic")
 
 from services.anonymizer.app.anonymization.replacement import ReplacementContext
+from services.anonymizer.app.models import PipelinePatientRecord
 from services.anonymizer.app.pipelines.patient_pipeline import (
     FieldRule,
     PatientPipeline,
     PipelineContext,
+    PatientPayloadValidationError,
 )
 
 
@@ -52,17 +55,27 @@ def pipeline(monkeypatch: pytest.MonkeyPatch) -> PatientPipeline:
     return pipeline
 
 
-def test_anonymize_patient_payload_applies_field_rules(pipeline: PatientPipeline) -> None:
-    payload = {
-        "demographics": {"first_name": "Jane"},
-        "care_team": [
-            {"name": "Dr. Adams"},
-            {"name": "Dr. Baker", "organization": "Downtown Clinic"},
-        ],
-        "encounters": [
-            {"location": "St. Mary Medical Center"},
-        ],
-    }
+@pytest.fixture()
+def patient_payload() -> dict[str, Any]:
+    record = PipelinePatientRecord.model_validate(
+        {
+            "demographics": {"first_name": "Jane"},
+            "care_team": [
+                {"name": "Dr. Adams"},
+                {"name": "Dr. Baker", "organization": "Downtown Clinic"},
+            ],
+            "encounters": [
+                {"location": "St. Mary Medical Center"},
+            ],
+        }
+    )
+    return record.model_dump(mode="json", by_alias=False, exclude_none=True)
+
+
+def test_anonymize_patient_payload_applies_field_rules(
+    pipeline: PatientPipeline, patient_payload: dict[str, Any]
+) -> None:
+    payload = patient_payload
 
     context = PipelineContext(
         document_id="doc-001",
@@ -117,3 +130,24 @@ def test_anonymize_patient_payload_ignores_missing_paths(pipeline: PatientPipeli
 
     # Only the non-``None`` values should have triggered replacements.
     assert pipeline._replacement_calls == []
+
+
+def test_extract_patient_payload_wraps_validation_errors(
+    pipeline: PatientPipeline,
+) -> None:
+    invalid_payload = {
+        "patient": {
+            "demographics": {
+                "first_name": "Ada",
+                "date_of_birth": "31-02-2020",
+            }
+        }
+    }
+
+    with pytest.raises(PatientPayloadValidationError) as excinfo:
+        pipeline._extract_patient_payload(invalid_payload)
+
+    message = str(excinfo.value)
+    assert "date_of_birth" in message
+    assert "31-02-2020" not in message
+    assert "Ada" not in message

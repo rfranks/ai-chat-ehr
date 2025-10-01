@@ -26,7 +26,9 @@ import json
 import re
 from copy import deepcopy
 
-from shared.models import PatientRecord
+from pydantic import ValidationError
+
+from services.anonymizer.app.models import PipelinePatientRecord
 from shared.observability.logger import get_logger
 
 from .resilience import RetryPolicy, call_async_with_retry, call_with_retry
@@ -39,6 +41,7 @@ __all__ = [
     "ColumnResolver",
     "FieldRule",
     "PatientDocumentNotFoundError",
+    "PatientPayloadValidationError",
     "PatientPipeline",
     "PipelineContext",
     "PipelineRunSummary",
@@ -109,6 +112,14 @@ class PatientDocumentNotFoundError(RuntimeError):
         self.document_id = document_id
 
 
+class PatientPayloadValidationError(ValueError):
+    """Raised when patient payload validation fails with PHI-safe messaging."""
+
+    def __init__(self, message: str, *, errors: Sequence[str] | None = None) -> None:
+        super().__init__(message)
+        self.errors = tuple(errors or ())
+
+
 _CAMEL_BOUNDARY_1 = re.compile(r"(.)([A-Z][a-z]+)")
 _CAMEL_BOUNDARY_2 = re.compile(r"([a-z0-9])([A-Z])")
 
@@ -155,6 +166,20 @@ def _traverse_structure(value: Any, parts: Sequence[str]) -> Any:
             results = [_traverse_structure(item, tail) for item in value]
             return [item for item in results if item is not None]
         return None
+
+
+def _format_validation_errors(exc: ValidationError) -> tuple[str, ...]:
+    """Return sanitized validation error messages without embedding PHI."""
+
+    messages: list[str] = []
+    for error in exc.errors():
+        location = ".".join(str(part) for part in error.get("loc", ()) if part != "__root__")
+        msg = error.get("msg", "Invalid input")
+        if location:
+            messages.append(f"{location}: {msg}")
+        else:
+            messages.append(msg)
+    return tuple(messages)
 
     if isinstance(value, Mapping):
         if head not in value:
@@ -513,7 +538,15 @@ class PatientPipeline:
         else:
             source = normalized
 
-        record = PatientRecord.model_validate(source)
+        try:
+            record = PipelinePatientRecord.model_validate(source)
+        except ValidationError as exc:
+            errors = _format_validation_errors(exc)
+            message = "Invalid patient payload"
+            if errors:
+                message = f"{message}: " + "; ".join(errors)
+            raise PatientPayloadValidationError(message, errors=errors) from exc
+
         return record.model_dump(mode="json", by_alias=False, exclude_none=True)
 
     def _anonymize_patient_payload(
