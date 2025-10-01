@@ -28,15 +28,22 @@ from services.anonymizer.models.firestore import (
 )
 from services.anonymizer.models.postgres import PatientRow as PatientModel
 from services.anonymizer.presidio_engine import PresidioAnonymizerEngine
+from services.anonymizer.storage.interfaces import PatientStorage
 from services.anonymizer.storage.postgres import (
     ConstraintViolationError,
     PatientRow as StoragePatientRow,
     PostgresStorage,
     StorageError,
 )
+from services.anonymizer.storage.sqlfile import SQLFileStorage
 
 ENV_POSTGRES_DSN = "ANONYMIZER_POSTGRES_DSN"
+ENV_STORAGE_MODE = "ANONYMIZER_STORAGE_MODE"
+ENV_SQL_OUTPUT_PATH = "ANONYMIZER_STORAGE_SQL_PATH"
 DEFAULT_PATIENT_STATUS = "inactive"
+DEFAULT_SQL_OUTPUT_PATH = "anonymizer_dry_run.sql"
+STORAGE_MODE_DATABASE = "database"
+STORAGE_MODE_SQL_FILE = "sqlfile"
 
 
 class PatientProcessingError(RuntimeError):
@@ -59,7 +66,7 @@ class ServiceConfigurationError(PatientProcessingError):
 class _ServiceDependencies:
     firestore: FirestoreDataSource
     anonymizer: PresidioAnonymizerEngine
-    storage: PostgresStorage
+    storage: PatientStorage
 
 
 _dependencies: _ServiceDependencies | None = None
@@ -71,7 +78,7 @@ def configure_service(
     *,
     firestore: FirestoreDataSource | None = None,
     anonymizer: PresidioAnonymizerEngine | None = None,
-    storage: PostgresStorage | None = None,
+    storage: PatientStorage | None = None,
 ) -> None:
     """Configure global service dependencies for :func:`process_patient`."""
 
@@ -96,13 +103,32 @@ def _get_dependencies() -> _ServiceDependencies:
     return _dependencies
 
 
-def _create_storage_from_env() -> PostgresStorage:
-    dsn = os.getenv(ENV_POSTGRES_DSN)
-    if not dsn:
-        raise ServiceConfigurationError(
-            "Postgres DSN must be provided via the ANONYMIZER_POSTGRES_DSN environment variable.",
-        )
-    return PostgresStorage(dsn)
+def _create_storage_from_env() -> PatientStorage:
+    mode = os.getenv(ENV_STORAGE_MODE)
+    if mode:
+        mode = mode.strip().lower()
+    else:
+        mode = STORAGE_MODE_DATABASE
+
+    if mode in {STORAGE_MODE_DATABASE, "postgres", "postgresql"}:
+        dsn = os.getenv(ENV_POSTGRES_DSN)
+        if not dsn:
+            raise ServiceConfigurationError(
+                "Postgres DSN must be provided via the ANONYMIZER_POSTGRES_DSN environment variable.",
+            )
+        return PostgresStorage(dsn)
+
+    if mode in {STORAGE_MODE_SQL_FILE, "sql-file", "file", "dry-run", "dryrun"}:
+        output_path = os.getenv(ENV_SQL_OUTPUT_PATH, DEFAULT_SQL_OUTPUT_PATH)
+        if not output_path:
+            raise ServiceConfigurationError(
+                "Dry-run storage mode requires ANONYMIZER_STORAGE_SQL_PATH to specify an output file.",
+            )
+        return SQLFileStorage(output_path)
+
+    raise ServiceConfigurationError(
+        "Unsupported anonymizer storage mode configured via ANONYMIZER_STORAGE_MODE.",
+    )
 
 
 async def process_patient(
@@ -111,7 +137,7 @@ async def process_patient(
     *,
     firestore: FirestoreDataSource | None = None,
     anonymizer: PresidioAnonymizerEngine | None = None,
-    storage: PostgresStorage | None = None,
+    storage: PatientStorage | None = None,
 ) -> tuple[UUID, list[TransformationEvent]]:
     """Fetch, anonymize, and persist a patient record from Firestore.
 
@@ -182,13 +208,13 @@ def _resolve_dependencies(
     *,
     firestore: FirestoreDataSource | None,
     anonymizer: PresidioAnonymizerEngine | None,
-    storage: PostgresStorage | None,
+    storage: PatientStorage | None,
 ) -> _ServiceDependencies:
     if firestore or anonymizer or storage:
         if firestore is None:
             raise ServiceConfigurationError("A Firestore data source must be provided when overriding dependencies.")
         if storage is None:
-            raise ServiceConfigurationError("A Postgres storage instance must be provided when overriding dependencies.")
+            raise ServiceConfigurationError("A patient storage instance must be provided when overriding dependencies.")
         anonymizer = anonymizer or PresidioAnonymizerEngine()
         return _ServiceDependencies(firestore=firestore, anonymizer=anonymizer, storage=storage)
 

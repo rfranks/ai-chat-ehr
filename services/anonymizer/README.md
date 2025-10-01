@@ -9,13 +9,24 @@ The anonymizer service extracts patient documents from Firestore, removes protec
 | `ANONYMIZER_FIRESTORE_SOURCE` | No (defaults to `fixtures`) | Chooses the Firestore data source mode. Use `fixtures` for local JSON fixtures or `credentials` to load documents with a real Firestore client. |
 | `ANONYMIZER_FIRESTORE_FIXTURES_DIR` | No | Overrides the default fixture search path when running in `fixtures` mode. Must point to a directory containing patient JSON files. |
 | `ANONYMIZER_FIRESTORE_CREDENTIALS` | When `ANONYMIZER_FIRESTORE_SOURCE=credentials` | File path to Google service account credentials used by the credentialed Firestore data source. |
-| `ANONYMIZER_POSTGRES_DSN` | Yes | Postgres DSN used by the storage layer for inserting anonymized patient rows. |
+| `ANONYMIZER_POSTGRES_DSN` | When `ANONYMIZER_STORAGE_MODE=database` | Postgres DSN used by the storage layer for inserting anonymized patient rows. |
+| `ANONYMIZER_STORAGE_MODE` | No (defaults to `database`) | Controls how anonymized rows are persisted. Use `database` to insert directly into Postgres or `sqlfile` to emit `INSERT` statements without touching the database. |
+| `ANONYMIZER_STORAGE_SQL_PATH` | When `ANONYMIZER_STORAGE_MODE=sqlfile` (defaults to `anonymizer_dry_run.sql`) | Filesystem path where dry-run `INSERT` statements are written for review. |
 
 ## Fixture Workflows
 
 The default development workflow loads documents from JSON fixtures under `services/anonymizer/firestore_fixtures/patients`. You can provide your own fixtures by setting `ANONYMIZER_FIRESTORE_FIXTURES_DIR` to a directory of `.json` files where each filename (minus extension) becomes the Firestore document ID.
 
 When `ANONYMIZER_FIRESTORE_SOURCE=credentials`, the service instantiates a placeholder Firestore client that expects `ANONYMIZER_FIRESTORE_CREDENTIALS` to point to a service account JSON file. This path is validated before the service starts so misconfigurations fail fast.
+
+## Dry-run SQL output
+
+Set `ANONYMIZER_STORAGE_MODE=sqlfile` to review anonymized patient rows without writing
+to Postgres. In this mode, the service appends `INSERT INTO patient ...` statements to
+`ANONYMIZER_STORAGE_SQL_PATH` (defaulting to `anonymizer_dry_run.sql`). Developers can
+inspect the generated SQL to confirm PHI Safe Harboring before allowing the records to
+reach the live database. Switch the mode back to `database` once it is safe to persist
+the rows directly.
 
 ## Testing Strategy
 
