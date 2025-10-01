@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import date
 from pathlib import Path
 import sys
 import types
+from unittest.mock import Mock
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
@@ -197,6 +199,9 @@ if "shared" not in sys.modules:
         def debug(self, *args, **kwargs):  # pragma: no cover - stub
             return None
 
+        def warning(self, *args, **kwargs):  # pragma: no cover - stub
+            return None
+
         def bind(self, **_kwargs):  # pragma: no cover - stub
             return self
 
@@ -222,11 +227,8 @@ from services.anonymizer.models.firestore import (
     FirestoreName,
     FirestorePatientDocument,
 )
-from services.anonymizer.service import (
-    _anonymize_coverage,
-    _anonymize_document,
-    _extract_address,
-)
+import services.anonymizer.service as service_module
+from services.anonymizer.service import _anonymize_coverage, _anonymize_document, _extract_address
 
 
 class _StubPresidioEngine:
@@ -506,6 +508,46 @@ def test_anonymize_coverage_is_deterministic_for_phi_fields() -> None:
         if event.entity_type in {"COVERAGE_MEMBER_ID", "COVERAGE_PAYER_NAME", "COVERAGE_PAYER_ID"}
     }
     assert first_surrogates == second_surrogates
+
+
+def test_anonymize_coverage_generalizes_plan_effective_date() -> None:
+    engine = _StubPresidioEngine({})
+    coverage = FirestoreCoverage(plan_effective_date=date(2015, 4, 1))
+
+    events: list[TransformationEvent] = []
+    anonymized = _anonymize_coverage(engine, coverage, events)
+
+    assert anonymized.plan_effective_date == date(2015, 1, 1)
+
+    plan_events = [
+        event for event in events if event.entity_type == "COVERAGE_PLAN_EFFECTIVE_DATE"
+    ]
+    assert len(plan_events) == 1
+    plan_event = plan_events[0]
+    assert plan_event.action == "generalize"
+    assert "2015-01-01" in plan_event.surrogate
+
+
+def test_anonymize_coverage_logs_malformed_plan_effective_date(monkeypatch) -> None:
+    engine = _StubPresidioEngine({})
+    coverage = FirestoreCoverage()
+    object.__setattr__(coverage, "plan_effective_date", "04/01/2015")
+
+    mock_logger = Mock()
+    monkeypatch.setattr(service_module, "logger", mock_logger)
+
+    events: list[TransformationEvent] = []
+    anonymized = _anonymize_coverage(engine, coverage, events)
+
+    assert anonymized.plan_effective_date is None
+    assert not [
+        event for event in events if event.entity_type == "COVERAGE_PLAN_EFFECTIVE_DATE"
+    ]
+
+    mock_logger.warning.assert_called_once()
+    args, kwargs = mock_logger.warning.call_args
+    assert "malformed input" in args[0]
+    assert kwargs.get("event") == "anonymizer.coverage.plan_effective_date_invalid"
 
 
 def test_extract_address_returns_synthesized_fields() -> None:

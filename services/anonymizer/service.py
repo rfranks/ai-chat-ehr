@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 import hashlib
 import hmac
 import os
@@ -511,7 +511,71 @@ def _anonymize_coverage(
             event_accumulator,
         )
 
+    coverage.plan_effective_date = _generalize_plan_effective_date(
+        coverage.plan_effective_date,
+        event_accumulator=event_accumulator,
+    )
+
     return coverage
+
+
+def _generalize_plan_effective_date(
+    value: date | datetime | str | None,
+    *,
+    event_accumulator: list[TransformationEvent] | None = None,
+) -> date | None:
+    """Return ``value`` truncated to the first day of its year when possible."""
+
+    if value is None:
+        return None
+
+    parsed: date
+
+    if isinstance(value, datetime):
+        parsed = value.date()
+    elif isinstance(value, date):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError:
+            _log_invalid_plan_effective_date(value)
+            return None
+    else:
+        _log_invalid_plan_effective_date(value)
+        return None
+
+    generalized = date(parsed.year, 1, 1)
+
+    if event_accumulator is not None:
+        event_accumulator.append(
+            TransformationEvent(
+                entity_type="COVERAGE_PLAN_EFFECTIVE_DATE",
+                action="generalize",
+                start=0,
+                end=0,
+                surrogate=(
+                    f"Generalized coverage plan effective date to {generalized.isoformat()}."
+                ),
+            )
+        )
+
+    return generalized
+
+
+def _log_invalid_plan_effective_date(value: object) -> None:
+    logger.warning(
+        "Unable to generalize coverage plan effective date due to malformed input.",
+        event="anonymizer.coverage.plan_effective_date_invalid",
+        details=scrub_for_logging(
+            {
+                "value_type": type(value).__name__,
+                "value_present": value is not None,
+                "value_length": len(value) if isinstance(value, str) else None,
+            },
+            allow_keys={"value_type", "value_present", "value_length"},
+        ),
+    )
 
 
 def _hash_to_int(*values: str | None, salt: str) -> int:
