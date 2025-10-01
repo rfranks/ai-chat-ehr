@@ -101,7 +101,9 @@ async def test_read_patient_record(client: AsyncClient) -> None:
 
     payload = response.json()
     assert payload["demographics"]["patientId"] == "123456"
-    assert payload["medications"], "Expected medications to be present in patient record"
+    assert payload["medications"], (
+        "Expected medications to be present in patient record"
+    )
     assert payload["encounters"], "Expected encounters to be present in patient record"
 
 
