@@ -52,10 +52,10 @@ def summarize_transformations(
         ``action`` (or ``strategy``) field describing how the entity was
         anonymized.
 
-        generalization_metadata:
-            Optional mapping keyed by entity type providing additional
-            anonymization metadata.  Only the count of ``notes`` entries is
-            surfaced in the returned summary to avoid exposing PHI.
+    generalization_metadata, optional:
+        Optional second argument mapping keyed by entity type providing
+        additional anonymization metadata.  Only the count of ``notes`` entries
+        is surfaced in the returned summary to avoid exposing PHI.
 
     Returns
     -------
