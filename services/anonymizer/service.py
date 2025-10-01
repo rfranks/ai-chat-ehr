@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import hashlib
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -37,6 +38,110 @@ from services.anonymizer.storage.postgres import (
 
 ENV_POSTGRES_DSN = "ANONYMIZER_POSTGRES_DSN"
 DEFAULT_PATIENT_STATUS = "inactive"
+
+_STATE_FIPS_PREFIX: dict[str, int] = {
+    "AL": 1,
+    "AK": 2,
+    "AZ": 4,
+    "AR": 5,
+    "CA": 6,
+    "CO": 8,
+    "CT": 9,
+    "DE": 10,
+    "DC": 11,
+    "FL": 12,
+    "GA": 13,
+    "HI": 15,
+    "ID": 16,
+    "IL": 17,
+    "IN": 18,
+    "IA": 19,
+    "KS": 20,
+    "KY": 21,
+    "LA": 22,
+    "ME": 23,
+    "MD": 24,
+    "MA": 25,
+    "MI": 26,
+    "MN": 27,
+    "MS": 28,
+    "MO": 29,
+    "MT": 30,
+    "NE": 31,
+    "NV": 32,
+    "NH": 33,
+    "NJ": 34,
+    "NM": 35,
+    "NY": 36,
+    "NC": 37,
+    "ND": 38,
+    "OH": 39,
+    "OK": 40,
+    "OR": 41,
+    "PA": 42,
+    "RI": 44,
+    "SC": 45,
+    "SD": 46,
+    "TN": 47,
+    "TX": 48,
+    "UT": 49,
+    "VT": 50,
+    "VA": 51,
+    "WA": 53,
+    "WV": 54,
+    "WI": 55,
+    "WY": 56,
+    "PR": 72,
+}
+
+_STREET_NAMES = (
+    "Redwood",
+    "Maple",
+    "Cedar",
+    "Willow",
+    "Summit",
+    "Riverview",
+    "Sunset",
+    "Hillcrest",
+    "Parkside",
+    "Lakeside",
+    "Prairie",
+    "Riverstone",
+    "Oak Grove",
+    "Silverpine",
+    "Meadowbrook",
+)
+
+_STREET_SUFFIXES = (
+    "St",
+    "Ave",
+    "Dr",
+    "Ln",
+    "Way",
+    "Rd",
+    "Terrace",
+    "Court",
+    "Place",
+    "Trail",
+)
+
+_CITY_NAMES = (
+    "Riverton",
+    "Oakridge",
+    "Fairview",
+    "Brookfield",
+    "Sunnyvale",
+    "Highland",
+    "Glenmont",
+    "Clearwater",
+    "Silverpine",
+    "Lakeshore",
+    "Grand Harbor",
+    "Cedar Grove",
+    "Mapleton",
+    "Pinecrest",
+    "Harborside",
+)
 
 
 class PatientProcessingError(RuntimeError):
@@ -294,6 +399,79 @@ def _anonymize_coverage(
     return coverage
 
 
+def _hash_to_int(*values: str | None, salt: str) -> int:
+    """Hash the provided ``values`` into a deterministic integer."""
+
+    payload = "|".join(value or "" for value in values)
+    digest = hashlib.sha256(f"{salt}|{payload}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big", signed=False)
+
+
+def _synthesize_street(
+    *,
+    original_line1: str | None,
+    reference_values: tuple[str | None, ...],
+) -> str:
+    """Return a deterministic synthetic street address."""
+
+    seed = _hash_to_int(*reference_values, salt="street")
+    number = (seed % 9000) + 100
+    name_index = seed % len(_STREET_NAMES)
+    suffix_index = (seed // len(_STREET_NAMES)) % len(_STREET_SUFFIXES)
+    street = f"{number} {_STREET_NAMES[name_index]} {_STREET_SUFFIXES[suffix_index]}"
+
+    if original_line1 and street.lower() == original_line1.lower():
+        name_index = (name_index + 1) % len(_STREET_NAMES)
+        suffix_index = (suffix_index + 1) % len(_STREET_SUFFIXES)
+        number = ((number + 73) % 9000) + 100
+        street = f"{number} {_STREET_NAMES[name_index]} {_STREET_SUFFIXES[suffix_index]}"
+
+    return street
+
+
+def _synthesize_city(
+    *,
+    original_city: str | None,
+    reference_values: tuple[str | None, ...],
+) -> str:
+    """Return a deterministic synthetic city name."""
+
+    seed = _hash_to_int(*reference_values, salt="city")
+    city_index = seed % len(_CITY_NAMES)
+    city = _CITY_NAMES[city_index]
+
+    if original_city and city.lower() == original_city.lower():
+        city = _CITY_NAMES[(city_index + 1) % len(_CITY_NAMES)]
+
+    return city
+
+
+def _synthesize_postal_code(
+    *,
+    original_postal: str | None,
+    state: str | None,
+    reference_values: tuple[str | None, ...],
+) -> str:
+    """Return a deterministic Safe Harbor postal code."""
+
+    seed = _hash_to_int(*reference_values, salt="postal")
+
+    if state and state in _STATE_FIPS_PREFIX:
+        prefix = _STATE_FIPS_PREFIX[state]
+        digits = seed % 1000
+        postal = f"{prefix:02d}{digits:03d}"
+        if original_postal and postal == original_postal:
+            digits = (digits + 1) % 1000
+            postal = f"{prefix:02d}{digits:03d}"
+        return postal
+
+    postal = f"{(seed % 90000) + 10000:05d}"
+    if original_postal and postal == original_postal:
+        alt = ((seed + 1) % 90000) + 10000
+        postal = f"{alt:05d}"
+    return postal
+
+
 def _anonymize_address(
     engine: PresidioAnonymizerEngine,
     address: FirestoreAddress,
@@ -301,12 +479,67 @@ def _anonymize_address(
 ) -> FirestoreAddress:
     address = address.model_copy(deep=True)
 
-    address.address_line1 = _anonymize_text(engine, address.address_line1, event_accumulator)
-    address.address_line2 = _anonymize_text(engine, address.address_line2, event_accumulator)
-    address.city = _anonymize_text(engine, address.city, event_accumulator)
-    address.state = _anonymize_text(engine, address.state, event_accumulator)
-    address.postal_code = _anonymize_text(engine, address.postal_code, event_accumulator)
-    address.country = _anonymize_text(engine, address.country, event_accumulator)
+    original_line1 = address.address_line1
+    original_city = address.city
+    original_postal = address.postal_code
+    original_state = (address.state or "").strip() or None
+    original_country = (address.country or "").strip() or None
+
+    state_abbr: str | None = None
+    if original_state and len(original_state) == 2 and original_state.isalpha():
+        state_abbr = original_state.upper()
+        address.state = state_abbr
+    else:
+        address.state = _anonymize_text(engine, original_state, event_accumulator)
+
+    address.country = original_country
+
+    reference_values = (
+        original_line1,
+        original_city,
+        original_postal,
+        state_abbr,
+        original_country,
+    )
+
+    street = _synthesize_street(
+        original_line1=original_line1,
+        reference_values=reference_values,
+    )
+    city = _synthesize_city(
+        original_city=original_city,
+        reference_values=reference_values,
+    )
+    postal_code = _synthesize_postal_code(
+        original_postal=original_postal,
+        state=state_abbr,
+        reference_values=reference_values,
+    )
+
+    address.address_line1 = street
+    address.city = city
+    address.postal_code = postal_code
+    address.address_line2 = _anonymize_text(
+        engine, address.address_line2, event_accumulator
+    )
+
+    def _record(component: str, value: str) -> None:
+        location = f" within {state_abbr}" if state_abbr else ""
+        note = f"Synthesized patient mailing {component}{location}: {value}."
+        if event_accumulator is not None:
+            event_accumulator.append(
+                TransformationEvent(
+                    entity_type=f"PATIENT_ADDRESS_{component.upper()}",
+                    action="synthesize",
+                    start=0,
+                    end=0,
+                    surrogate=note,
+                )
+            )
+
+    _record("street", street)
+    _record("city", city)
+    _record("postal_code", postal_code)
 
     return address
 
@@ -425,9 +658,21 @@ def _coerce_uuid(value: str | None, *, fallback: str) -> UUID:
 def _extract_address(document: FirestorePatientDocument) -> dict[str, Any] | None:
     for coverage in document.coverages:
         if coverage.address:
-            payload = coverage.address.model_dump(exclude_none=True)
-            if payload:
-                return payload
+            safe_address: dict[str, Any] = {}
+            if coverage.address.address_line1:
+                safe_address["street"] = coverage.address.address_line1
+            if coverage.address.address_line2:
+                safe_address["unit"] = coverage.address.address_line2
+            if coverage.address.city:
+                safe_address["city"] = coverage.address.city
+            if coverage.address.state:
+                safe_address["state"] = coverage.address.state
+            if coverage.address.postal_code:
+                safe_address["postal_code"] = coverage.address.postal_code
+            if coverage.address.country:
+                safe_address["country"] = coverage.address.country
+            if safe_address:
+                return safe_address
     return None
 
 
