@@ -67,6 +67,18 @@ services:
       redis:
         condition: service_started
 
+  anonymizer:
+    image: ai-chat-ehr-anonymizer:latest
+    build:
+      context: .
+      dockerfile: services/anonymizer/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ai-chat-ehr-base:latest}
+    env_file:
+      - .env
+    ports:
+      - "8004:8004"
+
   redis:
     image: redis:7-alpine
     ports:
