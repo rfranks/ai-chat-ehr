@@ -142,7 +142,7 @@ class PromptRepository:
         return categories
 
     def _iterate_category_values(self, value: Any) -> Iterable[str]:
-        """Yield raw category values from ``value`` regardless of structure."""
+        """Return raw category values from ``value`` regardless of structure."""
 
         if value is None:
             return []
