@@ -318,7 +318,7 @@ def _format_timestamp(value: datetime | None) -> str:
         return ""
     try:
         return value.isoformat(timespec="minutes")
-    except TypeError:  # pragma: no cover - fallback for Python <3.11 behaviour
+    except TypeError:  # pragma: no cover - fallback for Python <3.11 behavior
         return value.replace(microsecond=0).isoformat()
 
 

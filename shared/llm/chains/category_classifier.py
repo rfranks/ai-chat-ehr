@@ -536,7 +536,7 @@ def _iter_possible_values(payload: Any) -> Iterable[str]:
 
 
 class CategoryClassifier:
-    """Wrapper around a :class:`LLMChain` for prompt categorisation."""
+    """Wrapper around a :class:`LLMChain` for prompt categorization."""
 
     def __init__(
         self, chain: LLMChain, categories: Sequence[PromptEMRDataCategory]

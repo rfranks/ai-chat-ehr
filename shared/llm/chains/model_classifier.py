@@ -54,7 +54,7 @@ DEFAULT_MODEL_CLASSIFIER_MODELS: tuple[LLMModelClassifierMetadata, ...] = (
         provider="openai/gpt-4o",
         description=(
             "Flagship OpenAI multimodal model offering strong reasoning for "
-            "clinical summarisation, code synthesis, and mixed modality inputs."
+            "clinical summarization, code synthesis, and mixed modality inputs."
         ),
         aliases=("gpt-4o", "o4", "openai-gpt-4o"),
         strengths=(
@@ -73,7 +73,7 @@ DEFAULT_MODEL_CLASSIFIER_MODELS: tuple[LLMModelClassifierMetadata, ...] = (
         model="GPT-4o mini",
         provider="openai/gpt-4o-mini",
         description=(
-            "Smaller OpenAI multimodal model optimised for rapid responses and "
+            "Smaller OpenAI multimodal model optimized for rapid responses and "
             "tool use with moderate reasoning strength."
         ),
         aliases=("gpt-4o-mini", "o4-mini", "openai-gpt-4o-mini"),
@@ -104,7 +104,7 @@ DEFAULT_MODEL_CLASSIFIER_MODELS: tuple[LLMModelClassifierMetadata, ...] = (
             "chatgpt",
         ),
         strengths=(
-            "Low latency for simple summarisation or extraction",
+            "Low latency for simple summarization or extraction",
             "Cost-effective for high-volume automation",
             "Deterministic style when paired with low temperature",
         ),
@@ -125,7 +125,7 @@ DEFAULT_MODEL_CLASSIFIER_MODELS: tuple[LLMModelClassifierMetadata, ...] = (
         aliases=("azure-gpt-4o", "microsoft-azure-gpt-4o"),
         strengths=(
             "Enterprise compliance and private networking support",
-            "Consistent behaviour with public GPT-4o",
+            "Consistent behavior with public GPT-4o",
             "Supports Azure-managed authentication and quotas",
         ),
         weaknesses=(
@@ -179,13 +179,13 @@ DEFAULT_MODEL_CLASSIFIER_MODELS: tuple[LLMModelClassifierMetadata, ...] = (
         model="Claude 3 Haiku",
         provider="anthropic/claude-3-haiku",
         description=(
-            "Fastest Claude 3 family member optimised for lightweight reasoning and "
+            "Fastest Claude 3 family member optimized for lightweight reasoning and "
             "classification tasks."
         ),
         aliases=("claude-3-haiku", "claude-haiku", "haiku"),
         strengths=(
             "Very low latency for triage-style prompts",
-            "Robust refusal behaviour for unsafe instructions",
+            "Robust refusal behavior for unsafe instructions",
             "Cost efficient for batch automation",
         ),
         weaknesses=(
@@ -225,7 +225,7 @@ DEFAULT_MODEL_CLASSIFIER_MODELS: tuple[LLMModelClassifierMetadata, ...] = (
         aliases=("gemini-2.5-flash", "gemini-flash", "google-gemini-flash"),
         strengths=(
             "Responsive experience for clinician-facing assistants",
-            "Optimised for tool calling and structured outputs",
+            "Optimized for tool calling and structured outputs",
             "Supports text and lightweight image inputs",
         ),
         weaknesses=(

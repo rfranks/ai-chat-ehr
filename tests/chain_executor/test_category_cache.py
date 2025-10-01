@@ -1,4 +1,4 @@
-"""Tests for the prompt category cache behaviour."""
+"""Tests for the prompt category cache behavior."""
 
 from __future__ import annotations
 

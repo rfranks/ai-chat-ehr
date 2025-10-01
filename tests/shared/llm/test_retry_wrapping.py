@@ -120,12 +120,12 @@ def stub_dependencies(monkeypatch):
     class _WaitPolicy:
         def __init__(
             self, **_kwargs
-        ) -> None:  # pragma: no cover - behaviour not exercised
+        ) -> None:  # pragma: no cover - behavior not exercised
             pass
 
     def wait_exponential(
         **kwargs,
-    ) -> _WaitPolicy:  # pragma: no cover - behaviour not exercised
+    ) -> _WaitPolicy:  # pragma: no cover - behavior not exercised
         return _WaitPolicy(**kwargs)
 
     class _BaseAttempt:

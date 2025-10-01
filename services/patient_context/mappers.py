@@ -117,7 +117,7 @@ def filter_context_by_categories(
 ) -> EHRPatientContext:
     """Return a copy of ``context`` filtered to ``categories``.
 
-    Unknown or unsupported category slugs are ignored to provide resilient behaviour
+    Unknown or unsupported category slugs are ignored to provide resilient behavior
     for clients. Core demographic and narrative scaffolding is always preserved so
     downstream consumers continue to receive a structurally valid payload.
     """

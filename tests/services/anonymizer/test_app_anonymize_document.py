@@ -203,19 +203,19 @@ if "pydantic" not in sys.modules:
 if "presidio_analyzer" not in sys.modules:
     presidio_stub = types.ModuleType("presidio_analyzer")
 
-    class _AnalyzerEngine:  # pragma: no cover - stub behaviour
+    class _AnalyzerEngine:  # pragma: no cover - stub behavior
         pass
 
-    class _RecognizerResult:  # pragma: no cover - stub behaviour
+    class _RecognizerResult:  # pragma: no cover - stub behavior
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             self.entity_type = "PERSON"
             self.start = 0
             self.end = 0
 
-    class _Pattern:  # pragma: no cover - stub behaviour
+    class _Pattern:  # pragma: no cover - stub behavior
         pass
 
-    class _PatternRecognizer:  # pragma: no cover - stub behaviour
+    class _PatternRecognizer:  # pragma: no cover - stub behavior
         pass
 
     presidio_stub.AnalyzerEngine = _AnalyzerEngine
@@ -227,7 +227,7 @@ if "presidio_analyzer" not in sys.modules:
 if "structlog" not in sys.modules:
     structlog_stub = types.ModuleType("structlog")
 
-    class _BoundLogger:  # pragma: no cover - stub behaviour
+    class _BoundLogger:  # pragma: no cover - stub behavior
         def bind(self, **_kwargs: Any) -> "_BoundLogger":
             return self
 
@@ -240,11 +240,11 @@ if "structlog" not in sys.modules:
         def exception(self, *args: Any, **kwargs: Any) -> None:
             return None
 
-    class _LoggerFactory:  # pragma: no cover - stub behaviour
+    class _LoggerFactory:  # pragma: no cover - stub behavior
         def __call__(self, *args: Any, **kwargs: Any) -> _BoundLogger:
             return _BoundLogger()
 
-    class _ContextVarsModule:  # pragma: no cover - stub behaviour
+    class _ContextVarsModule:  # pragma: no cover - stub behavior
         @staticmethod
         def merge_contextvars(*args: Any, **kwargs: Any) -> dict[str, Any]:
             return {}
@@ -257,18 +257,18 @@ if "structlog" not in sys.modules:
         def get_contextvars() -> dict[str, Any]:
             return {}
 
-    class _ProcessorsModule:  # pragma: no cover - stub behaviour
+    class _ProcessorsModule:  # pragma: no cover - stub behavior
         @staticmethod
         def add_log_level(
             logger: Any, method_name: str, event_dict: dict[str, Any]
         ) -> dict[str, Any]:
             return event_dict
 
-        class TimeStamper:  # pragma: no cover - stub behaviour
+        class TimeStamper:  # pragma: no cover - stub behavior
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 pass
 
-        class StackInfoRenderer:  # pragma: no cover - stub behaviour
+        class StackInfoRenderer:  # pragma: no cover - stub behavior
             def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
                 return {}
 
@@ -276,7 +276,7 @@ if "structlog" not in sys.modules:
         def format_exc_info(*args: Any, **kwargs: Any) -> dict[str, Any]:
             return {}
 
-        class JSONRenderer:  # pragma: no cover - stub behaviour
+        class JSONRenderer:  # pragma: no cover - stub behavior
             def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
                 return {}
 
@@ -304,14 +304,14 @@ if "structlog" not in sys.modules:
 if "loguru" not in sys.modules:
     loguru_stub = types.ModuleType("loguru")
 
-    class _DummyContext:  # pragma: no cover - stub behaviour
+    class _DummyContext:  # pragma: no cover - stub behavior
         def __enter__(self) -> "_DummyContext":
             return self
 
         def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
             return False
 
-    class _LoguruLogger:  # pragma: no cover - stub behaviour
+    class _LoguruLogger:  # pragma: no cover - stub behavior
         def bind(self, **_kwargs: Any) -> "_LoguruLogger":
             return self
 
@@ -330,7 +330,7 @@ if "loguru" not in sys.modules:
         def opt(self, *args: Any, **kwargs: Any) -> "_LoguruLogger":
             return self
 
-        def level(self, name: str):  # pragma: no cover - stub behaviour
+        def level(self, name: str):  # pragma: no cover - stub behavior
             class _Level:
                 def __init__(self, level_name: str) -> None:
                     self.name = level_name
@@ -361,7 +361,7 @@ if "fastapi" not in sys.modules:
         HTTP_503_SERVICE_UNAVAILABLE=503,
     )
 
-    class _HTTPException(Exception):  # pragma: no cover - stub behaviour
+    class _HTTPException(Exception):  # pragma: no cover - stub behavior
         def __init__(self, status_code: int, detail: str | None = None) -> None:
             self.status_code = status_code
             self.detail = detail
@@ -374,7 +374,7 @@ if "fastapi" not in sys.modules:
             self.url = types.SimpleNamespace(__str__=lambda self_ref: url, path="/")
             self.path_params = path_params or {}
 
-    class _FastAPI:  # pragma: no cover - stub behaviour
+    class _FastAPI:  # pragma: no cover - stub behavior
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             self.exception_handlers: dict[type[BaseException], Callable[..., Any]] = {}
 
@@ -404,7 +404,7 @@ if "fastapi" not in sys.modules:
 
             return decorator
 
-    class _APIRouter:  # pragma: no cover - stub behaviour
+    class _APIRouter:  # pragma: no cover - stub behavior
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
 
@@ -420,7 +420,7 @@ if "fastapi" not in sys.modules:
 
             return decorator
 
-    def _path(default: Any, **_kwargs: Any) -> Any:  # pragma: no cover - stub behaviour
+    def _path(default: Any, **_kwargs: Any) -> Any:  # pragma: no cover - stub behavior
         return default
 
     fastapi_stub.FastAPI = _FastAPI
@@ -433,7 +433,7 @@ if "fastapi" not in sys.modules:
 
     exceptions_stub = types.ModuleType("fastapi.exceptions")
 
-    class _RequestValidationError(Exception):  # pragma: no cover - stub behaviour
+    class _RequestValidationError(Exception):  # pragma: no cover - stub behavior
         pass
 
     exceptions_stub.RequestValidationError = _RequestValidationError
@@ -441,7 +441,7 @@ if "fastapi" not in sys.modules:
 
     responses_stub = types.ModuleType("fastapi.responses")
 
-    class _JSONResponse:  # pragma: no cover - stub behaviour
+    class _JSONResponse:  # pragma: no cover - stub behavior
         def __init__(self, content: Any, status_code: int = 200) -> None:
             self.content = content
             self.status_code = status_code
@@ -461,7 +461,7 @@ if "starlette" not in sys.modules:
 
     base_module = types.ModuleType("starlette.middleware.base")
 
-    class _BaseHTTPMiddleware:  # pragma: no cover - stub behaviour
+    class _BaseHTTPMiddleware:  # pragma: no cover - stub behavior
         def __init__(self, app: Any) -> None:
             self.app = app
 
@@ -470,7 +470,7 @@ if "starlette" not in sys.modules:
 
     requests_module = types.ModuleType("starlette.requests")
 
-    class _StarletteRequest:  # pragma: no cover - stub behaviour
+    class _StarletteRequest:  # pragma: no cover - stub behavior
         def __init__(self) -> None:
             self.headers: dict[str, str] = {}
             self.state = types.SimpleNamespace()
@@ -486,7 +486,7 @@ if "starlette" not in sys.modules:
 
     responses_module = types.ModuleType("starlette.responses")
 
-    class _StarletteResponse:  # pragma: no cover - stub behaviour
+    class _StarletteResponse:  # pragma: no cover - stub behavior
         def __init__(self) -> None:
             self.headers: dict[str, str] = {}
 
@@ -494,12 +494,12 @@ if "starlette" not in sys.modules:
     sys.modules["starlette.responses"] = responses_module
 
     types_module = types.ModuleType("starlette.types")
-    types_module.ASGIApp = object  # pragma: no cover - stub behaviour
+    types_module.ASGIApp = object  # pragma: no cover - stub behavior
     sys.modules["starlette.types"] = types_module
 
     exceptions_module = types.ModuleType("starlette.exceptions")
 
-    class _StarletteHTTPException(Exception):  # pragma: no cover - stub behaviour
+    class _StarletteHTTPException(Exception):  # pragma: no cover - stub behavior
         def __init__(self, status_code: int, detail: str | None = None) -> None:
             self.status_code = status_code
             self.detail = detail
