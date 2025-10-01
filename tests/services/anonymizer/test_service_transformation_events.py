@@ -222,7 +222,11 @@ from services.anonymizer.models.firestore import (
     FirestoreName,
     FirestorePatientDocument,
 )
-from services.anonymizer.service import _anonymize_document, _extract_address
+from services.anonymizer.service import (
+    _anonymize_coverage,
+    _anonymize_document,
+    _extract_address,
+)
 
 
 class _StubPresidioEngine:
@@ -393,6 +397,115 @@ def test_accumulates_coverage_identifier_events_without_leaking_phi() -> None:
         if event.entity_type in originals:
             assert originals[event.entity_type] not in event.surrogate
             assert event.surrogate
+
+
+def test_anonymize_coverage_preserves_enumerations() -> None:
+    engine = _StubPresidioEngine(
+        {
+            "M-123": ("anon-member", "token-member", "COVERAGE_MEMBER_ID"),
+            "Acme Health": (
+                "anon-payer-name",
+                "token-payer-name",
+                "COVERAGE_PAYER_NAME",
+            ),
+            "PAYER-001": ("anon-payer-id", "token-payer-id", "COVERAGE_PAYER_ID"),
+            "Bob": ("anon-first", "token-first", "COVERAGE_SUBSCRIBER_FIRST_NAME"),
+            "Jones": ("anon-last", "token-last", "COVERAGE_SUBSCRIBER_LAST_NAME"),
+            "Acme Alt": (
+                "anon-alt-payer",
+                "token-alt-payer",
+                "COVERAGE_ALT_PAYER_NAME",
+            ),
+        }
+    )
+    coverage = FirestoreCoverage(
+        member_id="M-123",
+        payer_name="Acme Health",
+        payer_id="PAYER-001",
+        first_name="Bob",
+        last_name="Jones",
+        alt_payer_name="Acme Alt",
+        gender="female",
+        relationship_to_subscriber="self",
+        insurance_type="ppo",
+        payer_rank=1,
+    )
+
+    events: list[TransformationEvent] = []
+    anonymized = _anonymize_coverage(engine, coverage, events)
+
+    assert anonymized.member_id == "anon-member"
+    assert anonymized.payer_name == "anon-payer-name"
+    assert anonymized.payer_id == "anon-payer-id"
+    assert anonymized.first_name == "anon-first"
+    assert anonymized.last_name == "anon-last"
+    assert anonymized.alt_payer_name == "anon-alt-payer"
+
+    assert anonymized.gender == coverage.gender
+    assert anonymized.relationship_to_subscriber == coverage.relationship_to_subscriber
+    assert anonymized.insurance_type == coverage.insurance_type
+    assert anonymized.payer_rank == coverage.payer_rank
+
+    captured_entities = {event.entity_type for event in events}
+    assert captured_entities == {
+        "COVERAGE_MEMBER_ID",
+        "COVERAGE_PAYER_NAME",
+        "COVERAGE_PAYER_ID",
+        "COVERAGE_SUBSCRIBER_FIRST_NAME",
+        "COVERAGE_SUBSCRIBER_LAST_NAME",
+        "COVERAGE_ALT_PAYER_NAME",
+    }
+
+    for event in events:
+        assert event.surrogate
+        assert event.action == "replace"
+        assert event.entity_type not in {
+            "COVERAGE_GENDER",
+            "COVERAGE_RELATIONSHIP",
+            "COVERAGE_INSURANCE_TYPE",
+            "COVERAGE_PAYER_RANK",
+        }
+
+
+def test_anonymize_coverage_is_deterministic_for_phi_fields() -> None:
+    engine = _StubPresidioEngine(
+        {
+            "M-123": ("anon-member", "token-member", "COVERAGE_MEMBER_ID"),
+            "Acme Health": (
+                "anon-payer-name",
+                "token-payer-name",
+                "COVERAGE_PAYER_NAME",
+            ),
+            "PAYER-001": ("anon-payer-id", "token-payer-id", "COVERAGE_PAYER_ID"),
+        }
+    )
+    coverage = FirestoreCoverage(
+        member_id="M-123",
+        payer_name="Acme Health",
+        payer_id="PAYER-001",
+    )
+
+    first_events: list[TransformationEvent] = []
+    second_events: list[TransformationEvent] = []
+
+    first = _anonymize_coverage(engine, coverage, first_events)
+    second = _anonymize_coverage(engine, coverage, second_events)
+
+    assert first.member_id == second.member_id == "anon-member"
+    assert first.payer_name == second.payer_name == "anon-payer-name"
+    assert first.payer_id == second.payer_id == "anon-payer-id"
+
+    first_surrogates = {
+        (event.entity_type, event.surrogate)
+        for event in first_events
+        if event.entity_type in {"COVERAGE_MEMBER_ID", "COVERAGE_PAYER_NAME", "COVERAGE_PAYER_ID"}
+    }
+    second_surrogates = {
+        (event.entity_type, event.surrogate)
+        for event in second_events
+        if event.entity_type in {"COVERAGE_MEMBER_ID", "COVERAGE_PAYER_NAME", "COVERAGE_PAYER_ID"}
+    }
+    assert first_surrogates == second_surrogates
 
 
 def test_extract_address_returns_synthesized_fields() -> None:
