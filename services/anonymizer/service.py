@@ -48,6 +48,7 @@ else:  # pragma: no cover - pydantic is an optional runtime dependency for tests
     try:
         from pydantic import ValidationError as _PydanticValidationError
     except Exception:  # pragma: no cover - defensive guard for import-time issues
+
         class _PydanticValidationError(Exception):
             """Fallback validation error when pydantic is unavailable."""
 
@@ -75,6 +76,7 @@ class AnonymizerEngine(Protocol):
         collect_events: bool = False,
     ) -> str | tuple[str, list[TransformationEvent]]:
         """Return anonymized text and optionally collected events."""
+
 
 ENV_POSTGRES_DSN = "ANONYMIZER_POSTGRES_DSN"
 ENV_STORAGE_MODE = "ANONYMIZER_STORAGE_MODE"
