@@ -149,16 +149,48 @@ class PromptRepository:
         if isinstance(value, str):
             return [value]
         if isinstance(value, Mapping):
-            return [str(value)]
+            return self._iterate_mapping_category_values(value)
         if isinstance(value, Iterable):
             results: list[str] = []
             for item in value:
-                if isinstance(item, str):
-                    results.append(item)
-                elif item is not None:
-                    results.append(str(item))
+                if item is None:
+                    continue
+                for nested in self._iterate_category_values(item):
+                    if nested:
+                        results.append(nested)
             return results
         return [str(value)]
+
+    def _iterate_mapping_category_values(
+        self, mapping: Mapping[Any, Any]
+    ) -> list[str]:
+        """Extract potential category slugs from ``mapping`` values."""
+
+        slug_fields = {
+            "slug",
+            "name",
+            "label",
+            "title",
+            "value",
+            "id",
+            "key",
+        }
+
+        results: list[str] = []
+        for raw_key, raw_value in mapping.items():
+            if raw_key is None:
+                continue
+            normalized_key = str(raw_key).lower()
+            if normalized_key in slug_fields:
+                for nested in self._iterate_category_values(raw_value):
+                    if nested:
+                        results.append(nested)
+
+        if results:
+            return results
+
+        # Fall back to a stringified representation for backwards compatibility.
+        return [str(mapping)]
 
     @staticmethod
     def _normalize_category_slug(value: Any) -> str:

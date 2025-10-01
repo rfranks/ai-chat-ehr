@@ -144,6 +144,28 @@ async def test_search_prompts_invalid_category_slug_returns_empty() -> None:
 
 
 @pytest.mark.anyio("asyncio")
+async def test_search_prompts_matches_metadata_categories_dict_values() -> None:
+    prompt = ChatPrompt(
+        title="Metadata Categories",
+        template="Hello",
+        metadata={
+            "id": "metadata-categories",
+            "categories": [
+                {"slug": "labs", "label": "Laboratory"},
+                {"name": "Notes"},
+            ],
+        },
+    )
+    repository = PromptRepository([prompt])
+
+    lab_results = await repository.search_prompts(categories=["labs"])
+    notes_results = await repository.search_prompts(categories=["notes"])
+
+    assert lab_results == [prompt]
+    assert notes_results == [prompt]
+
+
+@pytest.mark.anyio("asyncio")
 async def test_default_prompt_catalog_contains_expected_prompts() -> None:
     repository = get_prompt_repository()
 
