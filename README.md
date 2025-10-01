@@ -19,6 +19,7 @@ experience.
 | Prompt catalog | Hosts reusable prompt templates and simple search endpoints. | 8001 | <http://localhost:8001/docs> | [`docs/openapi/prompt_catalog.json`](docs/openapi/prompt_catalog.json) |
 | Patient context | Serves mock EMR data and pre-normalised patient context payloads. | 8002 | <http://localhost:8002/docs> | [`docs/openapi/patient_context.json`](docs/openapi/patient_context.json) |
 | Chain executor | Resolves prompt chains, enriches them with patient context, and executes LLM calls with optional streaming. | 8003 | <http://localhost:8003/docs> | [`docs/openapi/chain_executor.json`](docs/openapi/chain_executor.json) |
+| Anonymizer | Fetches patient documents, applies Safe Harbor PHI masking, and persists anonymized records. | 8004 | <http://localhost:8004/docs> | _Coming soon_ |
 
 The OpenAPI documents above are generated from the live FastAPI applications and
 can be imported into tooling such as Postman or Stoplight. See
@@ -83,6 +84,7 @@ defaults if unset.
    uvicorn services.patient_context.app:app --reload --port 8002
    uvicorn services.chain_executor.app:app --reload --port 8003
    uvicorn services.api_gateway.app:app --reload --port 8000
+   uvicorn services.anonymizer.main:app --reload --port 8004
    ```
 
 ### Option B: Docker Compose stack
@@ -99,6 +101,65 @@ defaults if unset.
    the API gateway only starts once its dependencies report healthy. The
    containers expose the service ports listed above on `localhost`. Use
    `docker compose down` to stop the stack when you finish testing.
+
+### Run and call the anonymizer service
+
+The anonymizer requires connectivity to Firestore and PostgreSQL. Provide the
+database DSN via `ANONYMIZER_POSTGRES_DSN` in your `.env` file or shell
+environment before launching the service. When running with Docker Compose the
+service reads the same `.env` file, so add any Firestore emulator credentials or
+service account configuration there as well.
+
+Start the FastAPI application locally (see the commands above) or rely on Docker
+Compose to publish it on <http://localhost:8004>. Once online, trigger
+anonymization for a Firestore patient document by posting to the collection
+endpoint:
+
+```bash
+curl -X POST \
+  "http://localhost:8004/anonymizer/collections/{collection}/documents/{document_id}" \
+  -H "Accept: application/json" | jq
+```
+
+The response returns an accepted status and a summary block describing the PHI
+transformations that were applied:
+
+```json
+{
+  "status": "accepted",
+  "summary": {
+    "recordId": "<anonymized-patient-uuid>",
+    "transformations": {
+      "total_transformations": 3,
+      "actions": {
+        "replace": 2,
+        "redact": 1
+      },
+      "entities": {
+        "PERSON": {
+          "count": 2,
+          "actions": {
+            "replace": 2
+          }
+        },
+        "PHONE_NUMBER": {
+          "count": 1,
+          "actions": {
+            "redact": 1
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Actual counts vary depending on the PHI entities found in the source document.
+
+`total_transformations` counts all masked spans, while `actions` and `entities`
+break down the anonymization activity by strategy and detected PHI category. The
+summary intentionally omits the original identifiers so downstream systems can
+audit PHI handling without re-exposing the source values.
 
 ## Request examples
 
