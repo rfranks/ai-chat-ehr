@@ -9,7 +9,12 @@ import hmac
 import re
 from typing import Callable, Iterable, Mapping, MutableSequence
 
-from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer, RecognizerResult
+from presidio_analyzer import (
+    AnalyzerEngine,
+    Pattern,
+    PatternRecognizer,
+    RecognizerResult,
+)
 
 from .models import TransformationEvent
 
@@ -69,9 +74,7 @@ class PresidioEngineConfig:
     """User configurable settings for :class:`PresidioAnonymizerEngine`."""
 
     default_action: AnonymizationAction = AnonymizationAction.REPLACE
-    entity_policies: Mapping[str, EntityAnonymizationRule] = field(
-        default_factory=dict
-    )
+    entity_policies: Mapping[str, EntityAnonymizationRule] = field(default_factory=dict)
     hash_secret: str = "ai-chat-ehr-safe-harbor"
     hash_prefix: str = "anon"
     hash_length: int = 12
@@ -234,7 +237,10 @@ class PresidioAnonymizerEngine:
         self._config = config or PresidioEngineConfig()
         self._analyzer = analyzer or _build_default_analyzer()
         self._synthesizer = synthesizer
-        if self._config.default_action is AnonymizationAction.SYNTHESIZE and not synthesizer:
+        if (
+            self._config.default_action is AnonymizationAction.SYNTHESIZE
+            and not synthesizer
+        ):
             self._synthesizer = OpenAILLMSynthesizer(model=self._config.llm_model)
 
     def anonymize(
@@ -283,8 +289,12 @@ class PresidioAnonymizerEngine:
                 )
 
         anonymized_text = text
-        for start, end, replacement in sorted(replacements, key=lambda r: r[0], reverse=True):
-            anonymized_text = anonymized_text[:start] + replacement + anonymized_text[end:]
+        for start, end, replacement in sorted(
+            replacements, key=lambda r: r[0], reverse=True
+        ):
+            anonymized_text = (
+                anonymized_text[:start] + replacement + anonymized_text[end:]
+            )
 
         anonymized_text = self._generalize_ages(anonymized_text)
         if collect_events:
@@ -333,12 +343,14 @@ class PresidioAnonymizerEngine:
         window = self._config.context_window
         start_context = max(result.start - window, 0)
         end_context = min(result.end + window, len(text))
-        context = text[start_context:result.start] + text[result.end:end_context]
+        context = text[start_context : result.start] + text[result.end : end_context]
 
         return self._synthesizer(result.entity_type, original_value, context or None)
 
     @staticmethod
-    def _overlaps(result: RecognizerResult, occupied: Iterable[tuple[int, int]]) -> bool:
+    def _overlaps(
+        result: RecognizerResult, occupied: Iterable[tuple[int, int]]
+    ) -> bool:
         for start, end in occupied:
             if result.start < end and start < result.end:
                 return True
@@ -374,4 +386,3 @@ __all__ = [
     "PresidioEngineConfig",
     "SAFE_HARBOR_ENTITIES",
 ]
-

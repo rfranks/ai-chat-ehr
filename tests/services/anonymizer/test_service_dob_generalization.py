@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
+
 from datetime import date
 from pathlib import Path
 import sys
@@ -210,7 +212,10 @@ def test_generalizes_birth_date_for_patients_younger_than_90() -> None:
     )
 
     assert row.dob == date(dob.year, 1, 1)
-    assert any(event.action == "generalize" and event.entity_type == "PATIENT_DOB" for event in events)
+    assert any(
+        event.action == "generalize" and event.entity_type == "PATIENT_DOB"
+        for event in events
+    )
 
 
 def test_suppresses_birth_date_for_patients_aged_90_or_older() -> None:
@@ -226,7 +231,10 @@ def test_suppresses_birth_date_for_patients_aged_90_or_older() -> None:
     )
 
     assert row.dob is None
-    assert any(event.action == "suppress" and event.entity_type == "PATIENT_DOB" for event in events)
+    assert any(
+        event.action == "suppress" and event.entity_type == "PATIENT_DOB"
+        for event in events
+    )
 
 
 def test_patient_row_generalizes_year_only_for_age_eighty_nine() -> None:

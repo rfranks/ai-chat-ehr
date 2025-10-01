@@ -4,8 +4,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
-
 from .presidio_engine import (
     AnonymizationAction,
     EntityAnonymizationRule,
@@ -24,3 +22,5 @@ __all__ = [
 ]
 
 __version__ = "0.1.0"
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)

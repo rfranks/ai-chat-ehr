@@ -1,5 +1,7 @@
 """Tests for anonymizer service configuration helpers."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -174,7 +176,9 @@ def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(service.ENV_ANONYMIZER_HASH_LENGTH, raising=False)
 
 
-def test_presidio_config_defaults_when_env_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_presidio_config_defaults_when_env_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _clear_env(monkeypatch)
 
     config = service._create_presidio_config_from_env()
@@ -185,7 +189,9 @@ def test_presidio_config_defaults_when_env_absent(monkeypatch: pytest.MonkeyPatc
     assert config.hash_length == default.hash_length
 
 
-def test_presidio_config_overrides_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_presidio_config_overrides_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _clear_env(monkeypatch)
     monkeypatch.setenv(service.ENV_ANONYMIZER_HASH_SECRET, "override-secret")
     monkeypatch.setenv(service.ENV_ANONYMIZER_HASH_PREFIX, "override-prefix")
@@ -198,7 +204,9 @@ def test_presidio_config_overrides_from_environment(monkeypatch: pytest.MonkeyPa
     assert config.hash_length == 24
 
 
-def test_configure_service_passes_environment_config(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_configure_service_passes_environment_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _clear_env(monkeypatch)
     monkeypatch.setenv(service.ENV_ANONYMIZER_HASH_SECRET, "configured-secret")
 

@@ -180,7 +180,9 @@ class PatientProcessingError(RuntimeError):
             sanitized["phase"] = phase
         if details:
             sanitized.update(details)
-        self.phase: ProcessingPhase | None = cast(ProcessingPhase | None, sanitized.get("phase"))
+        self.phase: ProcessingPhase | None = cast(
+            ProcessingPhase | None, sanitized.get("phase")
+        )
         self._details = MappingProxyType(dict(sanitized))
 
     @property
@@ -361,7 +363,9 @@ async def process_patient(
     collected transformation events emitted by the anonymizer engine.
     """
 
-    deps = _resolve_dependencies(firestore=firestore, anonymizer=anonymizer, storage=storage)
+    deps = _resolve_dependencies(
+        firestore=firestore, anonymizer=anonymizer, storage=storage
+    )
 
     try:
         payload = deps.firestore.get_patient(collection, document_id)
@@ -425,7 +429,9 @@ async def process_patient(
             transformation_event_count=len(transformation_events),
             total_transformations=transformation_summary["total_transformations"],
             transformation_actions=scrub_for_logging(transformation_summary["actions"]),
-            transformation_entities=scrub_for_logging(transformation_summary["entities"]),
+            transformation_entities=scrub_for_logging(
+                transformation_summary["entities"]
+            ),
             transformation_summary=scrub_for_logging(transformation_summary),
         )
         return patient_id, transformation_events
@@ -448,11 +454,17 @@ def _resolve_dependencies(
 ) -> _ServiceDependencies:
     if firestore or anonymizer or storage:
         if firestore is None:
-            raise ServiceConfigurationError("A Firestore data source must be provided when overriding dependencies.")
+            raise ServiceConfigurationError(
+                "A Firestore data source must be provided when overriding dependencies."
+            )
         if storage is None:
-            raise ServiceConfigurationError("A patient storage instance must be provided when overriding dependencies.")
+            raise ServiceConfigurationError(
+                "A patient storage instance must be provided when overriding dependencies."
+            )
         anonymizer = anonymizer or PresidioAnonymizerEngine()
-        return _ServiceDependencies(firestore=firestore, anonymizer=anonymizer, storage=storage)
+        return _ServiceDependencies(
+            firestore=firestore, anonymizer=anonymizer, storage=storage
+        )
 
     return _get_dependencies()
 
@@ -469,11 +481,21 @@ def _anonymize_document(
     original_ehr_instance_id = document.ehr.instance_id if document.ehr else None
     original_ehr_patient_id = document.ehr.patient_id if document.ehr else None
 
-    anonymized.name.first = _anonymize_text(engine, anonymized.name.first, event_accumulator)
-    anonymized.name.middle = _anonymize_text(engine, anonymized.name.middle, event_accumulator)
-    anonymized.name.last = _anonymize_text(engine, anonymized.name.last, event_accumulator)
-    anonymized.name.prefix = _anonymize_text(engine, anonymized.name.prefix, event_accumulator)
-    anonymized.name.suffix = _anonymize_text(engine, anonymized.name.suffix, event_accumulator)
+    anonymized.name.first = _anonymize_text(
+        engine, anonymized.name.first, event_accumulator
+    )
+    anonymized.name.middle = _anonymize_text(
+        engine, anonymized.name.middle, event_accumulator
+    )
+    anonymized.name.last = _anonymize_text(
+        engine, anonymized.name.last, event_accumulator
+    )
+    anonymized.name.prefix = _anonymize_text(
+        engine, anonymized.name.prefix, event_accumulator
+    )
+    anonymized.name.suffix = _anonymize_text(
+        engine, anonymized.name.suffix, event_accumulator
+    )
 
     if anonymized.facility_name:
         anonymized.facility_name = _anonymize_text(
@@ -571,11 +593,17 @@ def _anonymize_coverage(
         entity_type="INSURANCE_MEMBER_ID",
         event_accumulator=event_accumulator,
     )
-    coverage.payer_name = _anonymize_text(engine, coverage.payer_name, event_accumulator)
+    coverage.payer_name = _anonymize_text(
+        engine, coverage.payer_name, event_accumulator
+    )
     coverage.payer_id = _anonymize_text(engine, coverage.payer_id, event_accumulator)
-    coverage.first_name = _anonymize_text(engine, coverage.first_name, event_accumulator)
+    coverage.first_name = _anonymize_text(
+        engine, coverage.first_name, event_accumulator
+    )
     coverage.last_name = _anonymize_text(engine, coverage.last_name, event_accumulator)
-    coverage.alt_payer_name = _anonymize_text(engine, coverage.alt_payer_name, event_accumulator)
+    coverage.alt_payer_name = _anonymize_text(
+        engine, coverage.alt_payer_name, event_accumulator
+    )
 
     # Enumerated values (gender, insurance type, subscriber relationship, payer
     # rank) are not direct identifiers and are sourced from controlled
@@ -682,7 +710,9 @@ def _synthesize_street(
         name_index = (name_index + 1) % len(_STREET_NAMES)
         suffix_index = (suffix_index + 1) % len(_STREET_SUFFIXES)
         number = ((number + 73) % 9000) + 100
-        street = f"{number} {_STREET_NAMES[name_index]} {_STREET_SUFFIXES[suffix_index]}"
+        street = (
+            f"{number} {_STREET_NAMES[name_index]} {_STREET_SUFFIXES[suffix_index]}"
+        )
 
     return street
 
@@ -825,7 +855,9 @@ def _convert_to_patient_row(
     event_accumulator: list[TransformationEvent] | None = None,
 ) -> StoragePatientRow:
     tenant_uuid = _coerce_uuid(anonymized.tenant_id, fallback=f"tenant:{document_id}")
-    facility_uuid = _coerce_uuid(anonymized.facility_id, fallback=f"facility:{document_id}")
+    facility_uuid = _coerce_uuid(
+        anonymized.facility_id, fallback=f"facility:{document_id}"
+    )
     ehr_instance_uuid: UUID | None = None
     ehr_external_id: str | None = None
     ehr_connection_status: str | None = None
@@ -852,7 +884,9 @@ def _convert_to_patient_row(
         name_last=anonymized.name.last,
         gender=(anonymized.gender or "unknown").lower(),
         status=DEFAULT_PATIENT_STATUS,
-        dob=_generalize_date_of_birth(original.dob, event_accumulator=event_accumulator),
+        dob=_generalize_date_of_birth(
+            original.dob, event_accumulator=event_accumulator
+        ),
         legal_mailing_address=legal_address,
     )
 

@@ -1,5 +1,7 @@
 """Tests for anonymizer logging guardrails."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -49,7 +51,9 @@ class _BaseModelStub:
     def __init__(self, payload: dict[str, object]) -> None:
         self._payload = payload
 
-    def model_dump(self, mode: str = "python") -> dict[str, object]:  # pragma: no cover - simple stub
+    def model_dump(
+        self, mode: str = "python"
+    ) -> dict[str, object]:  # pragma: no cover - simple stub
         return dict(self._payload)
 
 
@@ -86,7 +90,9 @@ def test_scrub_for_logging_summarizes_sequences() -> None:
 
 
 def test_scrub_for_logging_handles_dataclasses() -> None:
-    record = DummyRow(tenant_id=uuid4(), status="inactive", name_first="Given", name_last="Family")
+    record = DummyRow(
+        tenant_id=uuid4(), status="inactive", name_first="Given", name_last="Family"
+    )
 
     sanitized = scrub_for_logging(record)
 

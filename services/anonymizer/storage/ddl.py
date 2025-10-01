@@ -46,7 +46,9 @@ def _load_text(path: Path, encoding: str = DEFAULT_ENCODING) -> str:
     return path.read_text(encoding=encoding)
 
 
-def load_ddl(name: str, *, directory: Path = DDL_DIRECTORY, encoding: str = DEFAULT_ENCODING) -> str:
+def load_ddl(
+    name: str, *, directory: Path = DDL_DIRECTORY, encoding: str = DEFAULT_ENCODING
+) -> str:
     """Load a DDL file from disk and return its raw contents.
 
     ``name`` may be provided with or without the ``.ddl`` suffix. ``directory``
@@ -86,7 +88,9 @@ def parse_statements(ddl_text: str) -> List[str]:
     return statements
 
 
-def load_statements(name: str, *, directory: Path = DDL_DIRECTORY, encoding: str = DEFAULT_ENCODING) -> List[str]:
+def load_statements(
+    name: str, *, directory: Path = DDL_DIRECTORY, encoding: str = DEFAULT_ENCODING
+) -> List[str]:
     """Convenience helper that loads and parses statements from ``name``."""
 
     ddl_text = load_ddl(name, directory=directory, encoding=encoding)

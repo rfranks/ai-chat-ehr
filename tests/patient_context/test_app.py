@@ -103,6 +103,26 @@ async def test_read_patient_context_without_filters(client: AsyncClient) -> None
 
 
 @pytest.mark.anyio("asyncio")
+async def test_read_patient_record(client: AsyncClient) -> None:
+    response = await client.get("/patients/123456")
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["demographics"]["patientId"] == "123456"
+    assert payload["medications"], "Expected medications to be present in patient record"
+    assert payload["encounters"], "Expected encounters to be present in patient record"
+
+
+@pytest.mark.anyio("asyncio")
+async def test_read_patient_record_unknown_patient(client: AsyncClient) -> None:
+    response = await client.get("/patients/999999")
+    assert response.status_code == 404
+
+    payload = response.json()
+    assert payload == {"detail": "Patient '999999' was not found."}
+
+
+@pytest.mark.anyio("asyncio")
 async def test_read_patient_context_with_selected_categories(
     client: AsyncClient,
 ) -> None:
