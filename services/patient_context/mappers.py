@@ -130,7 +130,10 @@ def filter_context_by_categories(
     for slug in categories:
         if not isinstance(slug, str):
             continue
-        candidate = _CATEGORY_SLUG_MAP.get(slug.casefold())
+        cleaned = slug.strip()
+        if not cleaned:
+            continue
+        candidate = _CATEGORY_SLUG_MAP.get(cleaned.casefold())
         if not candidate or candidate in seen:
             continue
         resolved.append(candidate)
