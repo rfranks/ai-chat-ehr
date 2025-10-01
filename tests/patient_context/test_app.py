@@ -147,3 +147,18 @@ async def test_read_patient_context_with_unknown_category(client: AsyncClient) -
     assert payload["medications"] == []
     assert payload["labResults"] == []
     assert payload["plan"].startswith("Continue lisinopril")
+
+
+@pytest.mark.anyio("asyncio")
+async def test_read_patient_context_with_whitespace_categories(
+    client: AsyncClient,
+) -> None:
+    response = await client.get(
+        "/patients/123456/context",
+        params=[("categories", "  labs  "), ("categories", "\nnotes\t")],
+    )
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["labResults"], "Expected lab results when whitespace is trimmed"
+    assert payload["clinicalNotes"], "Expected clinical notes when whitespace is trimmed"
