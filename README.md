@@ -104,11 +104,12 @@ defaults if unset.
 
 ### Run and call the anonymizer service
 
-The anonymizer requires connectivity to Firestore and PostgreSQL. Provide the
-database DSN via `ANONYMIZER_POSTGRES_DSN` in your `.env` file or shell
-environment before launching the service. When running with Docker Compose the
-service reads the same `.env` file, so add any Firestore emulator credentials or
-service account configuration there as well.
+The anonymizer requires connectivity to Firestore and, by default, PostgreSQL.
+Provide the database DSN via `ANONYMIZER_POSTGRES_DSN` (or switch to
+`ANONYMIZER_STORAGE_MODE=sqlfile` to emit `INSERT` statements for review) in your
+`.env` file or shell environment before launching the service. When running with
+Docker Compose the service reads the same `.env` file, so add any Firestore
+emulator credentials or service account configuration there as well.
 
 Start the FastAPI application locally (see the commands above) or rely on Docker
 Compose to publish it on <http://localhost:8004>. Once online, trigger
