@@ -1,0 +1,86 @@
+{
+  "createdAt": 1754272710463,
+  "name": {
+    "prefix": "Ms.",
+    "first": "Nick",
+    "last": "Alderman"
+  },
+  "dob": "1933-05-29",
+  "gender": "female",
+  "coverages": [
+    {
+      "memberId": "8D38CE46-",
+      "payerName": "INSURANCE_COMPANY_1580",
+      "payerId": "Unknown",
+      "relationshipToSubscriber": "Self",
+      "firstName": "Nick",
+      "lastName": "Alderman",
+      "gender": "female",
+      "altPayerName": "FL MCD MNG-Sunshine State",
+      "insuranceType": "medicaid",
+      "payerRank": 0,
+      "address": {
+        "addressLine1": "247 Reese Road",
+        "city": "Tampa",
+        "state": "FL",
+        "postalCode": "33605",
+        "country": "United States"
+      },
+      "planEffectiveDate": "2015-04-01"
+    },
+    {
+      "memberId": "Unknown",
+      "payerName": "Unknown",
+      "payerId": "Unknown",
+      "relationshipToSubscriber": "Other",
+      "firstName": "Unknown",
+      "lastName": "Unknown",
+      "gender": "unknown",
+      "altPayerName": "Resident Liability",
+      "insuranceType": "private",
+      "payerRank": 1
+    },
+    {
+      "memberId": "Unknown",
+      "payerName": "Unknown",
+      "payerId": "Unknown",
+      "relationshipToSubscriber": "Other",
+      "firstName": "Unknown",
+      "lastName": "Unknown",
+      "gender": "unknown",
+      "altPayerName": "Medicare B",
+      "insuranceType": "medicareB",
+      "payerRank": 2
+    },
+    {
+      "memberId": "8D38CE46-",
+      "payerName": "INSURANCE_COMPANY_1580",
+      "payerId": "Unknown",
+      "relationshipToSubscriber": "Self",
+      "firstName": "Nick",
+      "lastName": "Alderman",
+      "gender": "female",
+      "altPayerName": "X-over Medicare B to Medicaid",
+      "insuranceType": "medicaid",
+      "payerRank": 5,
+      "address": {
+        "addressLine1": "247 Reese Road",
+        "city": "Tampa",
+        "state": "FL",
+        "postalCode": "33605",
+        "country": "United States"
+      },
+      "planEffectiveDate": "2015-04-01"
+    }
+  ],
+  "ehr": {
+    "provider": "PointClickCareSandbox",
+    "instanceId": "92D707EA-E9F9-4B4A-95C3-A98C585A07F7",
+    "patientId": "6231",
+    "facilityId": "12"
+  },
+  "facilityId": "6ONQmxOcSRWFGkxOHW3V",
+  "facilityName": "Willow Creek Rehabilitation Center",
+  "tenantId": "Demo-SNF-di0ku",
+  "tenantName": "Demo SNF"
+}
