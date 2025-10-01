@@ -3,11 +3,37 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, MutableMapping
+
+
+def _extract_note_count(metadata: Any) -> int:
+    """Return the number of metadata notes without exposing their content."""
+
+    if isinstance(metadata, Mapping):
+        metadata = metadata.get("notes")
+
+    if metadata is None:
+        return 0
+
+    if isinstance(metadata, str):
+        # Treat a non-empty string as a single note.  Strings are iterables of
+        # characters which would otherwise inflate the count.
+        return int(bool(metadata.strip()))
+
+    try:
+        iterator = iter(metadata)
+    except TypeError:
+        return 0
+
+    count = 0
+    for _ in iterator:
+        count += 1
+    return count
 
 
 def summarize_transformations(
-    transformations: Iterable[Mapping[str, Any]]
+    transformations: Iterable[Mapping[str, Any]],
+    generalization_metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Aggregate anonymization transformations into a JSON friendly summary.
 
@@ -26,6 +52,11 @@ def summarize_transformations(
         ``action`` (or ``strategy``) field describing how the entity was
         anonymized.
 
+        generalization_metadata:
+            Optional mapping keyed by entity type providing additional
+            anonymization metadata.  Only the count of ``notes`` entries is
+            surfaced in the returned summary to avoid exposing PHI.
+
     Returns
     -------
     dict[str, Any]
@@ -39,14 +70,14 @@ def summarize_transformations(
 
         ``entities``
             Nested mapping keyed by entity type containing the per-entity
-            transformation counts and the distribution of anonymization
-            actions.
+            transformation counts, the distribution of anonymization actions,
+            and the ``notes_count`` derived from any supplied metadata.
     """
 
     total = 0
     action_counts: Counter[str] = Counter()
-    entity_stats: defaultdict[str, dict[str, Any]] = defaultdict(
-        lambda: {"count": 0, "actions": Counter()}
+    entity_stats: defaultdict[str, MutableMapping[str, Any]] = defaultdict(
+        lambda: {"count": 0, "actions": Counter(), "notes_count": 0}
     )
 
     for record in transformations:
@@ -64,6 +95,16 @@ def summarize_transformations(
         entity_stats[entity]["count"] += 1
         entity_stats[entity]["actions"][action] += 1
 
+    metadata: Mapping[str, Any] = generalization_metadata or {}
+    if isinstance(metadata, Mapping):
+        for entity, info in metadata.items():
+            entity_key = str(entity)
+            if entity_key not in entity_stats:
+                continue
+
+            note_count = _extract_note_count(info)
+            entity_stats[entity_key]["notes_count"] = note_count
+
     return {
         "total_transformations": total,
         "actions": dict(sorted(action_counts.items())),
@@ -71,6 +112,7 @@ def summarize_transformations(
             entity: {
                 "count": stats["count"],
                 "actions": dict(sorted(stats["actions"].items())),
+                "notes_count": stats.get("notes_count", 0),
             }
             for entity, stats in sorted(entity_stats.items())
         },
