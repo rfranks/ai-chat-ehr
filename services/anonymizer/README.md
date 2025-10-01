@@ -19,6 +19,18 @@ The default development workflow loads documents from JSON fixtures under `servi
 
 When `ANONYMIZER_FIRESTORE_SOURCE=credentials`, the service instantiates a placeholder Firestore client that expects `ANONYMIZER_FIRESTORE_CREDENTIALS` to point to a service account JSON file. This path is validated before the service starts so misconfigurations fail fast.
 
+### Fixture smoke test
+
+The repository bundles a helper script for exercising the anonymizer against the fixture-backed Firestore data source without starting the FastAPI service. Provide the document identifier and a Postgres DSN (for example, a local dev instance) to fetch the fixture, anonymize it, and persist the resulting patient row:
+
+```bash
+python scripts/run_anonymizer.py xpF51IBED5TOKMPJamWo \
+  --postgres-dsn postgresql://postgres:postgres@localhost:5432/postgres \
+  --dump-summary
+```
+
+Add `--no-bootstrap-schema` when the target database already contains the anonymizer tables.
+
 ## Dry-run SQL output
 
 Set `ANONYMIZER_STORAGE_MODE=sqlfile` to review anonymized patient rows without writing
