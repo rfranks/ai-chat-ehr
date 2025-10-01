@@ -12,6 +12,12 @@ The anonymizer service extracts patient documents from Firestore, removes protec
 | `ANONYMIZER_POSTGRES_DSN` | When `ANONYMIZER_STORAGE_MODE=database` | Postgres DSN used by the storage layer for inserting anonymized patient rows. |
 | `ANONYMIZER_STORAGE_MODE` | No (defaults to `database`) | Controls how anonymized rows are persisted. Use `database` to insert directly into Postgres or `sqlfile` to emit `INSERT` statements without touching the database. |
 | `ANONYMIZER_STORAGE_SQL_PATH` | When `ANONYMIZER_STORAGE_MODE=sqlfile` (defaults to `anonymizer_dry_run.sql`) | Filesystem path where dry-run `INSERT` statements are written for review. |
+| `ANONYMIZER_IDENTIFIER_HASH_SECRET` | No (defaults to `ai-chat-ehr-anonymizer`) | HMAC key used when deterministic identifier fallbacks are required (for example, when Presidio leaves a facility or tenant ID unchanged). |
+| `ANONYMIZER_HASH_SECRET` | No (defaults to `ai-chat-ehr-safe-harbor`) | Secret fed into the Presidio hashing strategy so replacements remain deterministic across runs. |
+| `ANONYMIZER_HASH_PREFIX` | No (defaults to `anon`) | Prefix prepended to Presidio-generated hash surrogates for Safe Harbor entities. |
+| `ANONYMIZER_HASH_LENGTH` | No (defaults to `12`) | Truncates the hexadecimal digest that Presidio produces for entity replacements; must parse as an integer. |
+
+Hash-related environment variables influence two different code paths. `ANONYMIZER_HASH_*` feeds the Presidio engine configuration so that recognized entities (names, phone numbers, emails, etc.) become stable `anon_<digest>` tokens, while `ANONYMIZER_IDENTIFIER_HASH_SECRET` drives the service-level HMAC fallback that pseudonymizes identifiers the analyzer leaves untouched before coercing them into UUIDs suitable for storage.【F:services/anonymizer/service.py†L45-L52】【F:services/anonymizer/service.py†L192-L237】【F:services/anonymizer/service.py†L773-L812】【F:services/anonymizer/service.py†L859-L866】【F:services/anonymizer/presidio_engine.py†L71-L77】【F:services/anonymizer/presidio_engine.py†L315-L325】 
 
 ## Fixture Workflows
 
@@ -61,3 +67,64 @@ To maintain compliance:
 - **Document Safe Harbor assumptions.** Any new recognizers or anonymization policies must continue to cover the Safe Harbor set and document deviations in this README.
 
 Following these practices prevents accidental disclosure of PHI in logs, test assertions, and development workflows while aligning with the Safe Harbor implementation shipped with the service.
+
+## Generalization Rules
+
+### Patient dates of birth
+
+Dates of birth are reduced to the minimum granularity allowed under Safe Harbor. Patients younger than 90 are truncated to the first day of their birth year, while any patient aged 90 or older has their DOB suppressed entirely so the database never stores a day, month, or year for that individual.【F:services/anonymizer/service.py†L815-L856】 
+
+### Coverage mailing addresses
+
+When a coverage record contains a mailing address, the street, city, and postal code are deterministically synthesized from the original components using salted SHA-256 hashes. State abbreviations that already conform to the two-letter USPS format are preserved (and normalized to uppercase), and countries pass through unchanged so downstream systems retain high-level geography without re-identification risk.【F:services/anonymizer/service.py†L539-L755】 
+
+### Coverage plan effective dates
+
+Plan effective dates are converted to ISO dates if necessary and then truncated to January 1 of the original year. Inputs that cannot be parsed as real dates are discarded and logged so malformed data never propagates to storage.【F:services/anonymizer/service.py†L546-L611】 
+
+## Transformation Summary
+
+- Presidio replaces every detected Safe Harbor entity with a deterministic hash that adopts the configured prefix (`anon` by default) and truncation length. This ensures stable surrogates across documents without leaking the original value.【F:services/anonymizer/presidio_engine.py†L71-L77】【F:services/anonymizer/presidio_engine.py†L315-L325】 
+- If Presidio leaves an identifier unchanged (for example, certain payer numbers or tenant IDs), the service applies an HMAC fallback using `ANONYMIZER_IDENTIFIER_HASH_SECRET`, records a `pseudonymize` transformation event, and then coerces the digest into a UUID before persistence.【F:services/anonymizer/service.py†L192-L237】【F:services/anonymizer/service.py†L773-L812】【F:services/anonymizer/service.py†L859-L866】 
+- Deterministic street, city, and postal-code synthesis yields consistent yet fictitious mailing addresses for each coverage while retaining the original state/country context when present.【F:services/anonymizer/service.py†L539-L755】 
+- Dates of birth and plan effective dates follow Safe Harbor generalization so high-risk age information never appears with day-level precision in the warehouse.【F:services/anonymizer/service.py†L546-L595】【F:services/anonymizer/service.py†L815-L856】 
+
+## Worked Example: Fixture to Patient Row
+
+Starting from the sample Firestore document `xpF51IBED5TOKMPJamWo.json`, which stores a 1933 birth date, Tampa mailing address, and payer effective date of 2015-04-01, the anonymizer produces the following sanitized patient record.【F:services/anonymizer/firestore_fixtures/patients/xpF51IBED5TOKMPJamWo.json†L1-L66】 
+
+1. **Presidio hashing.** With default settings the engine rewrites personal names such as `Nick` and `Alderman` to deterministic surrogates (`anon_a639fa71ee38` and `anon_3773d139b147`, respectively), ensuring repeated references map to the same token across payloads.【F:services/anonymizer/presidio_engine.py†L71-L77】【F:services/anonymizer/presidio_engine.py†L315-L325】 
+2. **Identifier fallback.** Facility, tenant, and EHR identifiers that Presidio cannot classify are run through the HMAC fallback and converted into UUIDs (`c5611650-ce3d-51a6-bd89-0e4bc902d28f` for the tenant, `917e452d-d44c-5f2c-9297-bf18e304cdd8` for the facility, and `51ba1a39-4736-57e1-8916-5e6394d9d753` for the EHR instance) so they remain unique without exposing the original strings.【F:services/anonymizer/service.py†L192-L237】【F:services/anonymizer/service.py†L773-L812】【F:services/anonymizer/service.py†L859-L866】 
+3. **DOB generalization.** Because the patient is older than 90, the service omits the `dob` field entirely when constructing the Postgres row.【F:services/anonymizer/service.py†L815-L856】 
+4. **Address synthesis.** The Tampa mailing address becomes the deterministic surrogate `4174 Lakeside Ave, Glenmont, FL 12790, United States`, preserving state and country while replacing the street/city/postal code trio.【F:services/anonymizer/service.py†L539-L755】 
+5. **Coverage effective dates.** Each coverage plan effective date is truncated to `2015-01-01`, the first day of the original year.【F:services/anonymizer/service.py†L546-L595】 
+
+The resulting patient row persisted to Postgres contains Safe Harbor–compliant fields such as:
+
+```json
+{
+  "tenant_id": "c5611650-ce3d-51a6-bd89-0e4bc902d28f",
+  "facility_id": "917e452d-d44c-5f2c-9297-bf18e304cdd8",
+  "ehr_instance_id": "51ba1a39-4736-57e1-8916-5e6394d9d753",
+  "ehr_external_id": "406835c1d10cf367760439765fc908199e5937e8e5115780647c637b96410826",
+  "name_first": "anon_a639fa71ee38",
+  "name_last": "anon_3773d139b147",
+  "gender": "female",
+  "status": "inactive",
+  "dob": null,
+  "legal_mailing_address": {
+    "street": "4174 Lakeside Ave",
+    "city": "Glenmont",
+    "state": "FL",
+    "postal_code": "12790",
+    "country": "United States"
+  }
+}
+```
+
+All values originate from deterministic transforms, so reprocessing the fixture produces identical sanitized rows suitable for repeatable tests and delta debugging.【F:services/anonymizer/service.py†L539-L755】【F:services/anonymizer/service.py†L773-L812】【F:services/anonymizer/presidio_engine.py†L71-L77】【F:services/anonymizer/presidio_engine.py†L315-L325】 
+
+## Additional CLI and Testing Resources
+
+- Follow the repository-level setup guides for running services locally or via Docker Compose when you need to exercise the anonymizer FastAPI application in an end-to-end scenario.【F:README.md†L70-L122】 
+- Use the project-wide testing instructions (`pytest tests/services/anonymizer`) when validating Safe Harbor changes locally; these tests cover configuration overrides, Firestore fixture loading, and reporting flows.【F:services/anonymizer/README.md†L32-L38】 
